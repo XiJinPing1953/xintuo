@@ -1,0 +1,14 @@
+{
+  "name": "zjlng",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Uni-app project for vehicle and sales management hosted on DCloud",
+  "scripts": {
+    "dev": "echo \"请使用 HBuilderX 或 @dcloudio/uni-app CLI 运行开发环境\"",
+    "build": "echo \"请使用 HBuilderX 或 @dcloudio/uni-app CLI 进行正式打包\"",
+    "test": "node tests/run-tests.js && node tests/e2e-sim.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

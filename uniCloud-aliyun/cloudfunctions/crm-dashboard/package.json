@@ -1,0 +1,7 @@
+{
+  "name": "crm-dashboard",
+  "dependencies": {},
+  "extensions": {
+    "uni-cloud-jql": {}
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "crm-gas-in",
+  "dependencies": {},
+  "extensions": {
+    "uni-cloud-jql": {}
+  }
+}

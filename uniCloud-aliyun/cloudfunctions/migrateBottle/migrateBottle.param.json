@@ -1,0 +1,9 @@
+{
+	"token": "a92dcb950d2109ce6632ea2626b49b06",
+	"data": {
+		"dryRun": false,
+		"batchSize": 500,
+		"fixStatus": true
+	}
+} // 本文件中的json内容将在云函数【运行】时作为参数传给云函数。
+// 配置教程参考：https://uniapp.dcloud.net.cn/uniCloud/rundebug.html#runparam

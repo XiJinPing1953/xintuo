@@ -1,0 +1,139 @@
+{
+	"pages": [{
+			"path": "pages/login/login",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "登录"
+			}
+		},
+                {
+                        "path": "pages/dashboard/index",
+                        "style": {
+                                "navigationBarTitleText": "工作台",
+                                "navigationStyle": "custom"
+                        }
+                },
+                {
+                        "path": "pages/admin/roles",
+                        "style": {
+                                "navigationBarTitleText": "角色与权限",
+                                "navigationStyle": "custom"
+                        }
+                },
+                {
+                        "path": "pages/admin/logs",
+                        "style": {
+                                "navigationBarTitleText": "操作日志",
+                                "navigationStyle": "custom"
+                        }
+                },
+                {
+                        "path": "pages/bill/monthly",
+                        "style": {
+                                "navigationStyle": "custom",
+                                "navigationBarTitleText": "对账单"
+			}
+		},
+		{
+			"path": "pages/customer/list",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "对账单明细"
+			}
+		},
+		{
+			"path": "pages/customer/edit",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "编辑客户"
+			}
+		},
+		
+		{
+			"path": "pages/delivery/list",
+			"style": {
+				"navigationBarTitleText": "配送员管理",
+				"navigationStyle": "custom"
+			}
+		},
+                {
+                        "path": "pages/vehicle/list",
+                        "style": {
+                                "navigationStyle": "custom",
+                                "navigationBarTitleText": "车辆管理"
+                        }
+                },
+                {
+                        "path": "pages/vehicle/detail",
+                        "style": {
+                                "navigationStyle": "custom",
+                                "navigationBarTitleText": "车辆详情"
+                        }
+                },
+                {
+                        "path": "pages/sale/edit",
+                        "style": {
+                                "navigationStyle": "custom",
+				"navigationBarTitleText": "新增销售记录"
+			}
+			
+		},
+		{
+			"path": "pages/bottle/manage",
+			"style": {
+				"navigationBarTitleText": "瓶子管理",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/delivery/edit",
+			"style": {
+				"navigationBarTitleText": "配送员编辑",
+				"navigationStyle": "custom"
+				
+			}
+		},
+		{
+			"path": "pages/bottle/detail",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "瓶子详情"
+			}
+		},
+		{
+			"path": "pages/bill/monthly-detail",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "对账单明细"
+			}
+		},
+		{
+			"path": "pages/sale/list",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "销售记录列表"
+			}
+		},
+		{
+			"path": "pages/sale/detail",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "销售记录详情"
+			}
+		},
+		{
+			"path": "pages/gas/inbound",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "天然气入库台账"
+			}
+		},
+		{
+			"path": "pages/filling/index",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "灌装管理"
+			}
+		}
+	]
+}
