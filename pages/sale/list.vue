@@ -41,7 +41,14 @@
               </view>
 
               <!-- 联想结果 -->
+<<<<<<< HEAD
               <view v-if="customerSuggests.length" class="suggest-panel">
+=======
+              <view
+                v-if="customerSuggests.length || customerSuggestLoading"
+                class="suggest-panel"
+              >
+>>>>>>> 25fda4a (init project)
                 <view
                   v-for="c in customerSuggests"
                   :key="c._id"
@@ -50,6 +57,12 @@
                 >
                   {{ c.name }}
                 </view>
+<<<<<<< HEAD
+=======
+                <view v-if="customerSuggestLoading" class="suggest-loading">
+                  查询中…
+                </view>
+>>>>>>> 25fda4a (init project)
               </view>
             </view>
 
@@ -103,6 +116,54 @@
             </view>
           </view>
 
+<<<<<<< HEAD
+=======
+          <view class="form-row">
+            <view class="form-item col-quarter">
+              <text class="label">车辆</text>
+              <view class="input-wrapper">
+                <input
+                  class="input"
+                  type="text"
+                  v-model="vehicleKeyword"
+                  placeholder="输入车牌号（模糊搜索）"
+                  @input="onVehicleInput"
+                  @confirm="onSearch"
+                />
+              </view>
+              <view
+                v-if="vehicleSuggests.length || vehicleSuggestLoading"
+                class="suggest-panel"
+              >
+                <view
+                  v-for="v in vehicleSuggests"
+                  :key="v._id"
+                  class="suggest-item"
+                  @tap="onSelectVehicle(v)"
+                >
+                  {{ v.plate_no || v.name }}
+                </view>
+                <view v-if="vehicleSuggestLoading" class="suggest-loading">
+                  查询中…
+                </view>
+              </view>
+            </view>
+
+            <view class="form-item col-quarter">
+              <text class="label">瓶号</text>
+              <view class="input-wrapper">
+                <input
+                  class="input"
+                  type="text"
+                  v-model.trim="filters.bottleNo"
+                  placeholder="输入瓶号筛选"
+                  @confirm="onSearch"
+                />
+              </view>
+            </view>
+          </view>
+
+>>>>>>> 25fda4a (init project)
           <view class="btn-row-inline">
             <button class="btn-soft" @click="resetFilter">重置</button>
             <button class="btn-primary" @click="onSearch">查询</button>
@@ -414,7 +475,13 @@ export default {
         customerId: '',
         customerName: '',
         dateFrom: '',
+<<<<<<< HEAD
         dateTo: ''
+=======
+        dateTo: '',
+        vehicleId: '',
+        bottleNo: ''
+>>>>>>> 25fda4a (init project)
       },
 
       // 客户列表
@@ -422,6 +489,18 @@ export default {
       customerIndex: -1,
       customerKeyword: '',
       customerSuggests: [],
+<<<<<<< HEAD
+=======
+      customerSuggestLoading: false,
+      customerSuggestTimer: null,
+
+      // 车辆列表
+      vehicles: [],
+      vehicleKeyword: '',
+      vehicleSuggests: [],
+      vehicleSuggestLoading: false,
+      vehicleSuggestTimer: null,
+>>>>>>> 25fda4a (init project)
 
       // 收款状态筛选
       paymentStatusOptions: ['全部', '已付', '挂账', '部分已付', '冲减'],
@@ -452,11 +531,14 @@ export default {
   },
 
   computed: {
+<<<<<<< HEAD
     customerLabel() {
       if (this.customerIndex < 0) return '全部客户'
       const c = this.customers[this.customerIndex]
       return c ? c.name : '全部客户'
     },
+=======
+>>>>>>> 25fda4a (init project)
     paymentStatusFilterLabel() {
       return this.paymentStatusOptions[this.paymentStatusIndex] || '全部'
     },
@@ -554,6 +636,7 @@ export default {
     onCustomerInput(e) {
       const kw = e.detail.value.trim()
       this.customerKeyword = kw
+<<<<<<< HEAD
 
       if (!kw) {
         this.customerSuggests = []
@@ -565,6 +648,15 @@ export default {
       this.customerSuggests = this.customers
         .filter((c) => c && c.name && c.name.includes(kw))
         .slice(0, 20)
+=======
+      this.filters.customerId = ''
+      this.filters.customerName = ''
+
+      if (this.customerSuggestTimer) clearTimeout(this.customerSuggestTimer)
+      this.customerSuggestTimer = setTimeout(() => {
+        this.fetchCustomerSuggests()
+      }, 200)
+>>>>>>> 25fda4a (init project)
     },
 
     onSelectCustomer(item) {
@@ -587,7 +679,11 @@ export default {
           data: {
             action: 'list',
             token,
+<<<<<<< HEAD
             data: {}
+=======
+            data: { pageSize: 500 }
+>>>>>>> 25fda4a (init project)
           }
         })
 
@@ -630,6 +726,7 @@ export default {
       }
     },
 
+<<<<<<< HEAD
     onCustomerChange(e) {
       const idx = Number(e.detail.value)
       this.customerIndex = idx
@@ -640,6 +737,80 @@ export default {
       } else {
         this.filters.customerId = ''
         this.filters.customerName = ''
+=======
+    async fetchCustomerSuggests() {
+      const kw = (this.customerKeyword || '').trim()
+      if (!kw) {
+        this.customerSuggests = []
+        return
+      }
+
+      const token = getToken()
+      if (!token) return
+      this.customerSuggestLoading = true
+      try {
+        const res = await uniCloud.callFunction({
+          name: 'crm-customer',
+          data: {
+            action: 'suggest',
+            token,
+            data: { keyword: kw, limit: 20 }
+          }
+        })
+        const result = res.result || {}
+        if (result.code === 0) {
+          this.customerSuggests = result.data || []
+        }
+      } catch (error) {
+        console.error('fetchCustomerSuggests error', error)
+      } finally {
+        this.customerSuggestLoading = false
+      }
+    },
+
+    onVehicleInput(e) {
+      this.vehicleKeyword = e.detail.value.trim()
+      this.filters.vehicleId = ''
+
+      if (this.vehicleSuggestTimer) clearTimeout(this.vehicleSuggestTimer)
+      this.vehicleSuggestTimer = setTimeout(() => {
+        this.fetchVehicleSuggests()
+      }, 200)
+    },
+
+    onSelectVehicle(vehicle) {
+      this.vehicleKeyword = vehicle.plate_no || vehicle.name || ''
+      this.filters.vehicleId = vehicle._id || ''
+      this.vehicleSuggests = []
+    },
+
+    async fetchVehicleSuggests() {
+      const kw = (this.vehicleKeyword || '').trim()
+      if (!kw) {
+        this.vehicleSuggests = []
+        return
+      }
+      const token = getToken()
+      if (!token) return
+      this.vehicleSuggestLoading = true
+      try {
+        const res = await uniCloud.callFunction({
+          name: 'crm-vehicle',
+          data: {
+            action: 'list',
+            token,
+            data: { keyword: kw, pageSize: 20 }
+          }
+        })
+        const result = res.result || {}
+        if (result.code === 0) {
+          this.vehicleSuggests = result.data || result.list || []
+        }
+      } catch (error) {
+        console.error('fetchVehicleSuggests error', error)
+      } finally {
+        this.vehicleSuggestLoading = false
+>>>>>>> 25fda4a (init project)
       }
     },
 
@@ -661,6 +832,13 @@ export default {
       this.customerIndex = -1
       this.filters.customerId = ''
       this.filters.customerName = ''
+<<<<<<< HEAD
+=======
+      this.vehicleKeyword = ''
+      this.vehicleSuggests = []
+      this.filters.vehicleId = ''
+      this.filters.bottleNo = ''
+>>>>>>> 25fda4a (init project)
 
       const today = new Date()
       const end = this.formatDate(today)
@@ -704,6 +882,12 @@ export default {
               customer_name: this.filters.customerName || undefined,
               date_from: this.filters.dateFrom || undefined,
               date_to: this.filters.dateTo || undefined,
+<<<<<<< HEAD
+=======
+              vehicle_id: this.filters.vehicleId || undefined,
+              vehicle_kw: this.vehicleKeyword || undefined,
+              bottle_no: this.filters.bottleNo || undefined,
+>>>>>>> 25fda4a (init project)
               page: this.page,
               pageSize: this.pageSize
             }

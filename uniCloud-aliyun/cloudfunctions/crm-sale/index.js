@@ -113,6 +113,13 @@ function toNumber(v, def = 0) {
   return Number.isNaN(n) ? def : n
 }
 
+<<<<<<< HEAD
+=======
+function escapeRegExp(str = '') {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+>>>>>>> 25fda4a (init project)
 exports.main = async (event, context) => {
   const { action, data = {}, token } = event
 
@@ -1246,16 +1253,42 @@ exports.main = async (event, context) => {
       date_to,
       delivery_man,
       vehicle_id,
+<<<<<<< HEAD
+=======
+      vehicle_kw,
+      bottle_no,
+>>>>>>> 25fda4a (init project)
       page = 1,
       pageSize = 50
     } = data
 
+<<<<<<< HEAD
     let where = {}
 
     if (customer_id) where.customer_id = customer_id
     if (customer_name) where.customer_name = customer_name
     if (delivery_man) where.delivery_man = delivery_man
     if (vehicle_id) where.vehicle_id = vehicle_id
+=======
+    const whereList = []
+
+    if (customer_id) {
+      whereList.push(dbCmd.or({ customer_id }, { customerId: customer_id }))
+    }
+    if (customer_name) {
+      whereList.push(
+        dbCmd.or({ customer_name }, { customerName: customer_name })
+      )
+    }
+    if (delivery_man) whereList.push({ delivery_man })
+    if (vehicle_id) whereList.push({ vehicle_id })
+
+    const vehicleKeyword = (vehicle_kw || '').trim()
+    if (vehicleKeyword) {
+      const reg = new RegExp(escapeRegExp(vehicleKeyword), 'i')
+      whereList.push(dbCmd.or({ car_no: reg }, { vehicle_plate: reg }))
+    }
+>>>>>>> 25fda4a (init project)
 
     // 统一使用 dbCmd.gte / lte 写法
     if (date_from || date_to) {
@@ -1267,9 +1300,30 @@ exports.main = async (event, context) => {
       } else if (date_to) {
         cond = dbCmd.lte(date_to)
       }
+<<<<<<< HEAD
       if (cond) where.date = cond
     }
 
+=======
+      if (cond) whereList.push({ date: cond })
+    }
+
+    const bottleKeyword = (bottle_no || '').trim()
+    if (bottleKeyword) {
+      whereList.push(
+        dbCmd.or(
+          { bottle_no: bottleKeyword },
+          { return_bottle_no: bottleKeyword },
+          { out_items: dbCmd.elemMatch({ bottle_no: bottleKeyword }) },
+          { back_items: dbCmd.elemMatch({ bottle_no: bottleKeyword }) },
+          { deposit_bottles_raw: new RegExp(bottleKeyword) }
+        )
+      )
+    }
+
+    const where = whereList.length ? dbCmd.and(...whereList) : {}
+
+>>>>>>> 25fda4a (init project)
     const skip = (page - 1) * pageSize
 
     let query = sales.where(where).orderBy('date', 'desc')

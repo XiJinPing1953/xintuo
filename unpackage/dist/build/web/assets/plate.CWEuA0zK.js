@@ -1,0 +1,1 @@
+function t(t="",e=10){return(t||"").toString().replace(/\s+/g,"").toUpperCase().replace(/[^A-Z0-9\u4E00-\u9FA5-]/g,"").slice(0,e)}function e(t=""){const e=(t||"").toString().trim().toUpperCase();if(!e)return"";return/^[A-Z0-9\u4E00-\u9FA5-]{5,10}$/.test(e)?e.slice(0,10):null}export{t as c,e as n};

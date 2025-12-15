@@ -29,9 +29,30 @@
               v-model="keyword"
               placeholder="按客户名 / 联系人 / 电话搜索"
               confirm-type="search"
+<<<<<<< HEAD
               @confirm="onSearch"
             />
             <view v-if="keyword" class="search-clear" @click="clearKeyword">×</view>
+=======
+              @input="onKeywordInput"
+              @confirm="onSearch"
+            />
+            <view v-if="keyword" class="search-clear" @click="clearKeyword">×</view>
+            <view v-if="suggestions.length" class="suggest-panel">
+              <view
+                v-for="item in suggestions"
+                :key="item._id"
+                class="suggest-item"
+                @click="onSelectSuggestion(item)"
+              >
+                <text class="suggest-name">{{ item.name }}</text>
+                <text v-if="item.contact || item.phone" class="suggest-sub">
+                  {{ [item.contact, item.phone].filter(Boolean).join(' / ') }}
+                </text>
+              </view>
+              <view v-if="suggestLoading" class="suggest-loading">查询中…</view>
+            </view>
+>>>>>>> 25fda4a (init project)
           </view>
 
           <view class="segmented">
@@ -158,6 +179,13 @@ export default {
       page: 1,
       pageSize: 30,
 
+<<<<<<< HEAD
+=======
+      suggestions: [],
+      suggestTimer: null,
+      suggestLoading: false,
+
+>>>>>>> 25fda4a (init project)
       // 当前登录用户信息（用于权限）
       userInfo: {}
     }
@@ -279,10 +307,58 @@ export default {
     onSearch() {
       this.fetchList(true)
     },
+<<<<<<< HEAD
     clearKeyword() {
       this.keyword = ''
       this.fetchList(true)
     },
+=======
+    onKeywordInput(e) {
+      this.keyword = e.detail.value
+      if (this.suggestTimer) clearTimeout(this.suggestTimer)
+      this.suggestTimer = setTimeout(() => {
+        this.fetchSuggest()
+      }, 200)
+    },
+    clearKeyword() {
+      this.keyword = ''
+      this.suggestions = []
+      this.fetchList(true)
+    },
+    onSelectSuggestion(item) {
+      this.keyword = item.name || ''
+      this.suggestions = []
+      this.fetchList(true)
+    },
+    async fetchSuggest() {
+      const kw = (this.keyword || '').trim()
+      if (!kw) {
+        this.suggestions = []
+        return
+      }
+      const token = this.getValidToken()
+      if (!token) return
+      this.suggestLoading = true
+      try {
+        const res = await uniCloud.callFunction({
+          name: 'crm-customer',
+          data: {
+            action: 'suggest',
+            token,
+            data: { keyword: kw, limit: 15 }
+          }
+        })
+        const result = res.result || {}
+        if (result.code === 0) {
+          this.suggestions = result.data || []
+        }
+      } catch (err) {
+        console.error('fetchSuggest error', err)
+      } finally {
+        this.suggestLoading = false
+      }
+    },
+>>>>>>> 25fda4a (init project)
     onFilterChange(type) {
       if (this.filterActive === type) return
       this.filterActive = type
@@ -494,6 +570,10 @@ export default {
     align-items: center;
     padding: 0 26rpx;
     box-sizing: border-box;
+<<<<<<< HEAD
+=======
+    position: relative;
+>>>>>>> 25fda4a (init project)
   }
 
   .search-input {
@@ -515,6 +595,47 @@ export default {
     color: #c0c4d4;
   }
 
+<<<<<<< HEAD
+=======
+  .suggest-panel {
+    position: absolute;
+    top: 90rpx;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border-radius: 12rpx;
+    box-shadow: 0 10rpx 26rpx rgba(0, 0, 0, 0.08);
+    z-index: 10;
+    max-height: 380rpx;
+    overflow-y: auto;
+  }
+
+  .suggest-item {
+    padding: 16rpx 20rpx;
+    border-bottom: 1rpx solid #f3f4f6;
+  }
+
+  .suggest-name {
+    display: block;
+    font-size: 28rpx;
+    color: #111827;
+  }
+
+  .suggest-sub {
+    display: block;
+    margin-top: 4rpx;
+    font-size: 24rpx;
+    color: #6b7280;
+  }
+
+  .suggest-loading {
+    padding: 14rpx 20rpx;
+    text-align: center;
+    font-size: 24rpx;
+    color: #6b7280;
+  }
+
+>>>>>>> 25fda4a (init project)
   /* 分段选择 */
   .segmented {
     margin-left: 16rpx;

@@ -308,6 +308,7 @@ exports.main = async (event, context) => {
 			const fill_count = toNumber(fillRow.total_count, 0) || 0
 
 			// 2）进站总量（车进站净重，kg）
+<<<<<<< HEAD
 			const inboundAgg = await gasInCol
 				.aggregate()
 				.match(where)
@@ -321,6 +322,25 @@ exports.main = async (event, context) => {
 			const inboundRow = (inboundAgg && inboundAgg.data && inboundAgg.data[0]) || {}
 			const inbound_total = toNumber(inboundRow.total_net, 0) || 0
 			const inbound_count = toNumber(inboundRow.total_count, 0) || 0
+=======
+                        const inboundAgg = await gasInCol
+                                .aggregate()
+                                .match(where)
+                                .group({
+                                        _id: null,
+                                        total_net: dbCmd.aggregate.sum('$net_weight'),
+                                        total_count: dbCmd.aggregate.sum(1),
+                                        total_load: dbCmd.aggregate.sum('$load_weight'),
+                                        total_loss: dbCmd.aggregate.sum('$loss_amount')
+                                })
+                                .end()
+
+			const inboundRow = (inboundAgg && inboundAgg.data && inboundAgg.data[0]) || {}
+                        const inbound_total = toNumber(inboundRow.total_net, 0) || 0
+                        const inbound_count = toNumber(inboundRow.total_count, 0) || 0
+                        const inbound_load_total = toNumber(inboundRow.total_load, 0) || 0
+                        const inbound_loss_total = toNumber(inboundRow.total_loss, 0) || +(inbound_load_total - inbound_total)
+>>>>>>> 25fda4a (init project)
 
 			// 3）销售总量（从站里真正出去的净重，kg）
 			//    这里直接用 crm_sale_records.total_net_weight：
@@ -343,11 +363,21 @@ exports.main = async (event, context) => {
 				code: 0,
 				msg: 'ok',
 				data: {
+<<<<<<< HEAD
 					inbound_total, // 进站合计（kg）
 					inbound_count, // 进站记录数
 					fill_total, // 灌装合计（kg）
 					fill_count, // 灌装记录数
 					sale_total, // 销售合计（kg）
+=======
+                                        inbound_total, // 进站合计（kg）
+                                        inbound_count, // 进站记录数
+                                        inbound_load_total, // 进站装车合计（kg）
+                                        inbound_loss_total, // 装车→进站亏损（kg）
+                                        fill_total, // 灌装合计（kg）
+                                        fill_count, // 灌装记录数
+                                        sale_total, // 销售合计（kg）
+>>>>>>> 25fda4a (init project)
 					sale_count // 销售记录数
 				}
 			}

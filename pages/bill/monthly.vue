@@ -12,6 +12,7 @@
 							confirm-type="search" @input="onCustomerInput" @confirm="onCustomerConfirm" />
 					</view>
 
+<<<<<<< HEAD
 					<!-- 联想下拉 -->
 					<view v-if="showCustomerDropdown" class="suggest-panel">
 						<view v-if="filteredCustomers.length" class="suggest-list">
@@ -28,6 +29,27 @@
 						</view>
 					</view>
 				</view>
+=======
+                                        <!-- 联想下拉 -->
+                                        <view v-if="showCustomerDropdown" class="suggest-panel">
+                                                <view v-if="customerSuggests.length" class="suggest-list">
+                                                        <view v-for="item in customerSuggests" :key="item._id" class="suggest-item"
+                                                                @click="onSelectCustomer(item)">
+                                                                <text class="suggest-name">{{ item.name }}</text>
+                                                                <text class="suggest-sub" v-if="item.address">
+                                                                        {{ item.address }}
+                                                                </text>
+                                                        </view>
+                                                </view>
+                                                <view v-else-if="!customerSuggestLoading" class="suggest-empty">
+                                                        <text>没有匹配的客户</text>
+                                                </view>
+                                                <view v-if="customerSuggestLoading" class="suggest-empty">
+                                                        <text>查询中…</text>
+                                                </view>
+                                        </view>
+                                </view>
+>>>>>>> 25fda4a (init project)
 
 				<!-- 时间段选择：开始日期 ~ 结束日期 -->
 				<view class="field date-range-field">
@@ -161,12 +183,24 @@
 
 		data() {
 			return {
+<<<<<<< HEAD
 				// 客户相关
 				customers: [],
 				customerKeyword: '',
 				customerId: '',
 				customerName: '',
 				showCustomerDropdown: false,
+=======
+                                // 客户相关
+                                customers: [],
+                                customerKeyword: '',
+                                customerId: '',
+                                customerName: '',
+                                showCustomerDropdown: false,
+                                customerSuggests: [],
+                                customerSuggestLoading: false,
+                                customerSuggestTimer: null,
+>>>>>>> 25fda4a (init project)
 
 				// 时间段
 				startDate: '', // YYYY-MM-DD
@@ -187,6 +221,7 @@
 			}
 		},
 
+<<<<<<< HEAD
 		computed: {
 			// 本地联想列表
 			filteredCustomers() {
@@ -198,6 +233,9 @@
 					.slice(0, 20)
 			}
 		},
+=======
+                computed: {},
+>>>>>>> 25fda4a (init project)
 
 		onLoad() {
 			this.initDateRange()
@@ -241,19 +279,34 @@
 				this.endDate = fmt(end)
 			},
 
+<<<<<<< HEAD
 			async loadCustomers() {
 			  try {
 			    const token = this.getToken()
+=======
+                        async loadCustomers() {
+                          try {
+                            const token = this.getToken()
+>>>>>>> 25fda4a (init project)
 			    if (!token) return // 这里直接退出，避免再调云函数
 			
 			    const res = await uniCloud.callFunction({
 			      name: 'crm-customer',
+<<<<<<< HEAD
 			      data: {
 			        action: 'list',
 			        token,
 			        data: {}
 			      }
 			    })
+=======
+                              data: {
+                                action: 'list',
+                                token,
+                                data: { pageSize: 500 }
+                              }
+                            })
+>>>>>>> 25fda4a (init project)
 			    const result = res.result || {}
 			    if (result.code !== 0) {
 			      uni.showToast({
@@ -265,6 +318,7 @@
 			    this.customers = result.data || []
 			  } catch (e) {
 			    console.error('loadCustomers error', e)
+<<<<<<< HEAD
 			    uni.showToast({
 			      title: '加载客户失败',
 			      icon: 'none'
@@ -294,6 +348,72 @@
 				this.showCustomerDropdown = false
 				this.loadSummaryByRange()
 			},
+=======
+                            uni.showToast({
+                              title: '加载客户失败',
+                              icon: 'none'
+                            })
+                          }
+                        },
+
+                        async fetchCustomerSuggests() {
+                                const kw = (this.customerKeyword || '').trim()
+                                if (!kw) {
+                                        this.customerSuggests = []
+                                        this.customerSuggestLoading = false
+                                        return
+                                }
+
+                                const token = this.getToken()
+                                if (!token) return
+                                this.customerSuggestLoading = true
+                                try {
+                                        const res = await uniCloud.callFunction({
+                                                name: 'crm-customer',
+                                                data: {
+                                                        action: 'suggest',
+                                                        token,
+                                                        data: { keyword: kw, limit: 20 }
+                                                }
+                                        })
+                                        const result = res.result || {}
+                                        if (result.code === 0) {
+                                                this.customerSuggests = result.data || []
+                                        }
+                                } catch (error) {
+                                        console.error('fetchCustomerSuggests error', error)
+                                } finally {
+                                        this.customerSuggestLoading = false
+                                }
+                        },
+
+                        onCustomerInput(e) {
+                                this.customerKeyword = e.detail.value
+                                this.showCustomerDropdown = !!this.customerKeyword
+                                if (this.customerSuggestTimer) clearTimeout(this.customerSuggestTimer)
+                                this.customerSuggestTimer = setTimeout(() => {
+                                        this.fetchCustomerSuggests()
+                                }, 200)
+                        },
+
+                        onCustomerConfirm() {
+                                // 回车时，如果刚好只有一个匹配，自动选中
+                                if (this.customerSuggests.length === 1) {
+                                        this.onSelectCustomer(this.customerSuggests[0])
+                                } else {
+                                        this.showCustomerDropdown = true
+                                }
+                        },
+
+			onSelectCustomer(item) {
+                                this.customerId = item._id
+                                this.customerName = item.name
+                                this.customerKeyword = item.name
+                                this.customerSuggests = []
+                                this.showCustomerDropdown = false
+                                this.loadSummaryByRange()
+                        },
+>>>>>>> 25fda4a (init project)
 
 			/* ===== 时间段选择 ===== */
 			onStartDateChange(e) {
