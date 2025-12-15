@@ -15,17 +15,10 @@ export function getToken() {
       uni.getStorageSync(TOKEN_KEY) ||
       uni.getStorageSync('token') ||
       ''
-<<<<<<< HEAD
     console.log('[auth/getToken] =>', t ? '有 token' : '无 token')
     return t
   } catch (e) {
     console.warn('[auth/getToken] 读取异常', e)
-=======
-    
-    return t
-  } catch (e) {
-    
->>>>>>> 25fda4a (init project)
     return ''
   }
 }
@@ -148,17 +141,10 @@ export function goLogin(forceMsg) {
 export function ensureLogin() {
   const token = getToken()
   const meta = getTokenMeta()
-<<<<<<< HEAD
   console.log('[auth/ensureLogin] token 是否存在 =', !!token)
 
   if (!token) {
     console.log('[auth/ensureLogin] 未登录，准备跳登录')
-=======
-  
-
-  if (!token) {
-    
->>>>>>> 25fda4a (init project)
     goLogin('请先登录')
     return false
   }
