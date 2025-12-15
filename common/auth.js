@@ -15,10 +15,10 @@ export function getToken() {
       uni.getStorageSync(TOKEN_KEY) ||
       uni.getStorageSync('token') ||
       ''
-    console.log('[auth/getToken] =>', t ? '有 token' : '无 token')
+    
     return t
   } catch (e) {
-    console.warn('[auth/getToken] 读取异常', e)
+    
     return ''
   }
 }
@@ -32,7 +32,7 @@ export function setToken(token, options = {}) {
     expireAt ||
     (expireIn ? createdAt + expireIn : createdAt + DEFAULT_TOKEN_TTL)
 
-  console.log('[auth/setToken] 保存 token，并记录有效期到', new Date(expiresAt))
+  
   uni.setStorageSync(TOKEN_KEY, token)
   uni.setStorageSync(TOKEN_META_KEY, {
     createdAt,
@@ -41,7 +41,7 @@ export function setToken(token, options = {}) {
 }
 
 export function clearAuth() {
-  console.log('[auth/clearAuth] 清空登录信息')
+  
   try {
     uni.removeStorageSync(TOKEN_KEY)
     uni.removeStorageSync(USER_INFO_KEY)
@@ -50,7 +50,7 @@ export function clearAuth() {
 }
 
 export function setUserInfo(user) {
-  console.log('[auth/setUserInfo] 保存用户信息')
+  
   uni.setStorageSync(USER_INFO_KEY, user || {})
 }
 
@@ -95,7 +95,7 @@ export function isTokenExpired(meta) {
 export function goLogin(forceMsg) {
   // 防止同一时刻多次重定向
   if (isRedirectingToLogin) {
-    console.log('[auth/goLogin] 已在跳转中，忽略')
+    
     return
   }
 
@@ -103,9 +103,9 @@ export function goLogin(forceMsg) {
   try {
     const pages = getCurrentPages()
     const currentRoute = pages[pages.length - 1]?.route || ''
-    console.log('[auth/goLogin] 当前路由 =', currentRoute)
+    
     if (currentRoute === 'pages/login/login') {
-      console.log('[auth/goLogin] 已在登录页，直接返回')
+      
       return
     }
   } catch (e) {}
@@ -123,7 +123,7 @@ export function goLogin(forceMsg) {
   clearAuth()
 
   setTimeout(() => {
-    console.log('[auth/goLogin] reLaunch 到登录页')
+    
     uni.reLaunch({
       url: '/pages/login/login'
     })
@@ -141,16 +141,16 @@ export function goLogin(forceMsg) {
 export function ensureLogin() {
   const token = getToken()
   const meta = getTokenMeta()
-  console.log('[auth/ensureLogin] token 是否存在 =', !!token)
+  
 
   if (!token) {
-    console.log('[auth/ensureLogin] 未登录，准备跳登录')
+    
     goLogin('请先登录')
     return false
   }
 
   if (isTokenExpired(meta)) {
-    console.log('[auth/ensureLogin] token 已过期，触发重新登录')
+    
     clearAuth()
     goLogin('登录已过期，请重新登录')
     return false
