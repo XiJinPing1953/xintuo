@@ -6,6 +6,10 @@ const users = db.collection('crm_users')
 const vehicles = db.collection('crm_vehicles')
 const logs = db.collection('crm_operation_logs')
 
+function escapeRegExp(str = '') {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 async function getUserByToken (token) {
   if (!token) return null
   const res = await users.where({ token }).limit(1).get()
@@ -104,6 +108,35 @@ exports.main = async (event, context) => {
   // =====================================
   // 1. 列表 + 搜索（支持关键字 / 站点筛选）
   // =====================================
+
+  if (action === 'suggest') {
+    const user = await getUserByToken(token)
+    if (!user) {
+      return { code: 401, msg: '未登录或登录已过期' }
+    }
+
+    const keyword = normalizeText(data.keyword) || ''
+    if (!keyword) return { code: 0, data: [] }
+
+    const limit = Math.min(Math.max(Number(data.limit) || 20, 1), 100)
+    const regCond = { $regex: escapeRegExp(keyword), $options: 'i' }
+    const where = {
+      $or: [
+        { plate_no: regCond },
+        { car_no: regCond },
+        { name: regCond }
+      ]
+    }
+
+    const res = await vehicles
+      .where(where)
+      .field({ plate_no: 1, car_no: 1, name: 1 })
+      .orderBy('updated_at', 'desc')
+      .limit(limit)
+      .get()
+
+    return { code: 0, data: res.data || [] }
+  }
 
   if (action === 'list') {
     const user = await getUserByToken(token)

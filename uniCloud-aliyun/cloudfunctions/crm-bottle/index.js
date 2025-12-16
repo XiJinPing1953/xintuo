@@ -35,6 +35,10 @@ function toNumber(v, def = null) {
   return Number.isNaN(n) ? def : n
 }
 
+function escapeRegExp(str = '') {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // 统一状态枚举
 const BOTTLE_STATUS = {
   IN_STATION: 'in_station',
@@ -159,6 +163,30 @@ exports.main = async (event, context) => {
       code: 0,
       data: res.data || []
     }
+  }
+
+  // =========================
+  // 1.5 模糊搜索（联想版） action: suggest
+  // =========================
+  if (action === 'suggest') {
+    const { keyword = '', limit = 20 } = data
+    const kw = (keyword || '').trim()
+    if (!kw) {
+      return { code: 0, data: [] }
+    }
+
+    const pageSize = Math.min(Math.max(Number(limit) || 20, 1), 100)
+    const regCond = { $regex: escapeRegExp(kw), $options: 'i' }
+    const where = { number: regCond }
+
+    const res = await bottlesCol
+      .where(where)
+      .field({ number: 1, status: 1, customer_id: 1 })
+      .orderBy('number', 'asc')
+      .limit(pageSize)
+      .get()
+
+    return { code: 0, data: res.data || [] }
   }
 
   // =========================
