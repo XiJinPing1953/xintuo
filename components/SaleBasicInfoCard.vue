@@ -191,6 +191,21 @@ export default {
       return String(str || '').replace(/[\s\u3000]+/g, '').trim()
     },
 
+    mapPriceUnit(u) {
+      const v = String(u || '').trim().toLowerCase()
+      if (v === 'kg') return 'kg'
+      if (v === 'bottle') return 'bottle'
+      if (v === 'm3' || v === 'cbm') return 'm3'
+      return 'kg'
+    },
+
+    isEmptyPrice(v) {
+      if (v === null || typeof v === 'undefined') return true
+      const n = Number(v)
+      if (Number.isNaN(n)) return true
+      return n <= 0
+    },
+
     /* ===== 业务模式切换 ===== */
     onModeClick(mode) {
       if (this.localMode === mode) return
@@ -235,7 +250,24 @@ export default {
       if (!item) return
       this.customerKeyword = this.normalizeKeyword(item.name)
       this.customerSuggests = []
-      this.updateHeader({ customer_id: item._id, customer_name: item.name })
+
+      const patch = {
+        customer_id: item._id,
+        customer_name: item.name
+      }
+
+      if (this.isEmptyPrice(this.header.unit_price) && item.default_unit_price != null) {
+        patch.unit_price = item.default_unit_price
+      }
+
+      if (!this.header.price_unit && item.default_price_unit) {
+        const unit = this.mapPriceUnit(item.default_price_unit)
+        patch.price_unit = unit
+        const map = { kg: 0, bottle: 1, m3: 2 }
+        this.priceUnitIndex = map[unit] != null ? map[unit] : 0
+      }
+
+      this.updateHeader(patch)
     },
 
     async fetchCustomerSuggests() {

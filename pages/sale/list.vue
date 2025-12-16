@@ -131,7 +131,7 @@
                   class="suggest-item"
                   @tap="onSelectVehicle(v)"
                 >
-                  {{ v.plate_no || v.car_no || v.name }}
+                  {{ v.plate_no || v.car_no || v.plateNo || v.name }}
                 </view>
                 <view v-if="vehicleSuggestLoading" class="suggest-loading">
                   查询中…
@@ -616,6 +616,7 @@ export default {
     }
 
     this.loadCustomers()
+    this.loadVehicles()
     this.fetchList(true)
   },
 
@@ -721,6 +722,30 @@ export default {
       }
     },
 
+    async loadVehicles() {
+      try {
+        const token = getToken()
+        if (!token) return
+
+        const res = await uniCloud.callFunction({
+          name: 'crm-vehicle',
+          data: {
+            action: 'list',
+            token,
+            data: { pageSize: 500 }
+          }
+        })
+
+        const result = res.result || {}
+        if (this.handle401(result)) return
+        if (result.code === 0) {
+          this.vehicles = result.data || result.list || []
+        }
+      } catch (e) {
+        console.error('loadVehicles error', e)
+      }
+    },
+
     async fetchCustomerSuggests() {
       const kw = this.normalizeKeyword(this.customerKeyword)
       if (!kw) {
@@ -784,28 +809,42 @@ export default {
         this.vehicleSuggestLoading = false
         return
       }
-      const token = getToken()
-      if (!token) return
       this.vehicleSuggestLoading = true
+      let gotRemote = false
       try {
-        const res = await uniCloud.callFunction({
-          name: 'crm-vehicle',
-          data: {
-            action: 'list',
-            token,
-            data: { keyword: kw, pageSize: 20 }
+        const token = getToken()
+        if (token) {
+          const res = await uniCloud.callFunction({
+            name: 'crm-vehicle',
+            data: {
+              action: 'list',
+              token,
+              data: { keyword: kw, pageSize: 20 }
+            }
+          })
+          const result = res.result || {}
+          if (this.handle401(result)) return
+          if (result.code === 0) {
+            this.vehicleSuggests = result.data || result.list || []
+            gotRemote = true
+          } else {
+            console.warn('[fetchVehicleSuggests] non-zero code', res, result)
+            this.vehicleSuggests = []
           }
-        })
-        const result = res.result || {}
-        if (this.handle401(result)) return
-        if (result.code === 0) {
-          this.vehicleSuggests = result.data || result.list || []
-        } else {
-          this.vehicleSuggests = []
         }
       } catch (error) {
         console.error('fetchVehicleSuggests error', error)
+        this.vehicleSuggests = []
       } finally {
+        if (!gotRemote) {
+          const list = (this.vehicles || []).filter((v) => {
+            if (!v) return false
+            const text =
+              this.normalizeKeyword(v.plate_no || v.car_no || v.plateNo || v.name)
+            return text.includes(kw)
+          })
+          this.vehicleSuggests = list.slice(0, 20)
+        }
         this.vehicleSuggestLoading = false
       }
     },
@@ -834,7 +873,7 @@ export default {
       this.bottleSuggests = []
     },
 
-    fetchBottleSuggests() {
+    async fetchBottleSuggests() {
       const kw = this.normalizeKeyword(this.bottleKeyword)
       if (!kw) {
         this.bottleSuggests = []
@@ -843,35 +882,59 @@ export default {
       }
 
       this.bottleSuggestLoading = true
+      let gotRemote = false
       try {
-        const set = new Set()
-        const trim = (s) => this.normalizeKeyword(s)
-        const pushList = (arr) => {
-          ;(arr || []).forEach((x) => {
-            const v = trim(x)
-            if (v) set.add(v)
+        const token = getToken()
+        if (token) {
+          const res = await uniCloud.callFunction({
+            name: 'crm-sale',
+            data: {
+              action: 'bottle_suggest',
+              token,
+              data: { keyword: kw, limit: 20 }
+            }
           })
-        }
-
-        this.records.forEach((r) => {
-          if (Array.isArray(r.out_items)) pushList(r.out_items.map((i) => i && i.bottle_no))
-          if (r.bottle_no) pushList([r.bottle_no])
-
-          if (Array.isArray(r.back_items)) pushList(r.back_items.map((i) => i && i.bottle_no))
-          if (r.return_bottle_no) pushList([r.return_bottle_no])
-
-          if (Array.isArray(r.deposit_items)) pushList(r.deposit_items.map((i) => i && i.bottle_no))
-          if (r.deposit_bottles_raw) {
-            pushList(r.deposit_bottles_raw.split(/[\/、,，\s]+/))
+          const result = res.result || {}
+          if (this.handle401(result)) return
+          if (result.code === 0 && Array.isArray(result.data)) {
+            this.bottleSuggests = result.data
+            gotRemote = true
+          } else if (result.code != null && result.code !== 0) {
+            console.warn('[fetchBottleSuggests] non-zero code', res, result)
           }
-        })
-
-        const matched = Array.from(set)
-          .filter((b) => b.includes(kw))
-          .slice(0, 20)
-
-        this.bottleSuggests = matched
+        }
+      } catch (error) {
+        console.error('fetchBottleSuggests error', error)
       } finally {
+        if (!gotRemote) {
+          const set = new Set()
+          const trim = (s) => this.normalizeKeyword(s)
+          const pushList = (arr) => {
+            ;(arr || []).forEach((x) => {
+              const v = trim(x)
+              if (v) set.add(v)
+            })
+          }
+
+          this.records.forEach((r) => {
+            if (Array.isArray(r.out_items)) pushList(r.out_items.map((i) => i && i.bottle_no))
+            if (r.bottle_no) pushList([r.bottle_no])
+
+            if (Array.isArray(r.back_items)) pushList(r.back_items.map((i) => i && i.bottle_no))
+            if (r.return_bottle_no) pushList([r.return_bottle_no])
+
+            if (Array.isArray(r.deposit_items)) pushList(r.deposit_items.map((i) => i && i.bottle_no))
+            if (r.deposit_bottles_raw) {
+              pushList(r.deposit_bottles_raw.split(/[\/、,，\s]+/))
+            }
+          })
+
+          const matched = Array.from(set)
+            .filter((b) => b.includes(kw))
+            .slice(0, 20)
+
+          this.bottleSuggests = matched
+        }
         this.bottleSuggestLoading = false
       }
     },
@@ -956,6 +1019,7 @@ export default {
         if (this.handle401(result)) return
 
         if (result.code !== 0) {
+          console.warn('fetchList non-zero code', res, result)
           uni.showToast({
             title: result.msg || '加载失败',
             icon: 'none'
