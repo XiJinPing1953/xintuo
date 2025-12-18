@@ -658,8 +658,14 @@ this.isAdmin = isAdminRole(this.userInfo)
                                                 start_date: this.dateRange.start,
                                                 end_date: this.dateRange.end
                                         })
-                                        if (result && result.code === 0 && result.data) {
+                                        if (!result) return
+                                        if (result.code === 0 && result.data) {
                                                 this.summary = Object.assign({}, this.summary, result.data || {})
+                                        } else if (result.code !== 401) {
+                                                console.warn('fetchSummary non-zero code', result)
+                                                if (result.msg) {
+                                                        uni.showToast({ title: result.msg, icon: 'none' })
+                                                }
                                         }
                                 } catch (e) {
                                         console.error('fetchSummary exception:', e)
@@ -679,10 +685,14 @@ this.isAdmin = isAdminRole(this.userInfo)
                                                 start_date: this.dateRange.start,
                                                 end_date: this.dateRange.end
                                         })
+                                        if (!result) return
                                         if (result && result.code === 0 && Array.isArray(result.data)) {
                                                 this.fillingList = result.data
                                         } else if (result && result.code !== 401) {
                                                 console.warn('fetchList error:', result.msg)
+                                                if (result.msg) {
+                                                        uni.showToast({ title: result.msg, icon: 'none' })
+                                                }
                                                 this.fillingList = []
                                         }
                                 } catch (e) {

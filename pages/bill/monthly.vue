@@ -383,6 +383,7 @@
 
 					const result = res.result || {}
 					if (result.code !== 0) {
+						console.warn('loadSummaryByRange failed', res, result)
 						uni.showToast({
 							title: result.msg || '加载账单失败',
 							icon: 'none'

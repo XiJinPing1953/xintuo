@@ -263,6 +263,7 @@ export default {
         if (result.code === 401) return ensureLogin()
 
         if (result.code !== 0) {
+          console.warn('fetch customer list failed', res, result)
           uni.showToast({
             title: result.msg || '加载失败',
             icon: 'none'
