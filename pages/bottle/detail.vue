@@ -289,13 +289,13 @@ export default {
 
   methods: {
     async callWithAuth(name, payload) {
-      const result = await callCloud(name, payload)
-      if (result.code === 401) return null
+      const token = getToken && getToken()
+      const result = await callCloud(name, { ...payload, token })
+      if (result && result.code === 401) return null
       return result
     },
 
     async fetchBottleDetail() {
-      // 如果有瓶号，用瓶号查
       if (!this.bottleNumber && !this.bottleId) {
         uni.showToast({
           title: '缺少瓶号参数',
@@ -306,15 +306,22 @@ export default {
 
       this.loading = true
       try {
-        const result = await this.callWithAuth('crm-bottle', {
-          action: 'getByNumber',
-          data: {
-            number: this.bottleNumber
-          }
-        })
+        let result = null
+        if (this.bottleId) {
+          result = await this.callWithAuth('crm-bottle', {
+            action: 'detail',
+            data: { id: this.bottleId }
+          })
+        }
+
+        if ((!result || result.code !== 0) && this.bottleNumber) {
+          result = await this.callWithAuth('crm-bottle', {
+            action: 'getByNumber',
+            data: { number: this.bottleNumber }
+          })
+        }
 
         if (!result) return
-
         if (result.code !== 0) {
           uni.showToast({
             title: result.msg || '加载失败',
@@ -327,7 +334,7 @@ export default {
         this.bottle = result.data || null
         if (this.bottle && this.bottle.number) {
           this.bottleNumber = this.bottle.number
-          // 有了瓶号，再去查流转记录
+          this.bottleId = this.bottle._id || this.bottleId
           this.loadRecords()
         }
       } catch (e) {
