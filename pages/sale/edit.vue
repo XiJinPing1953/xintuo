@@ -286,6 +286,12 @@
 						<text class="card-sub">记录整车毛重 / 皮重 / 净重，用于整车结算</text>
 					</view>
 					<view class="card-body">
+						<view class="summary-chip" v-if="truckBottleNo">
+							<view class="summary-line">
+								<text class="summary-label">整车瓶号：</text>
+								<text class="summary-value">{{ truckBottleNo }}</text>
+							</view>
+						</view>
 						<view class="form-row">
 							<view class="form-item col">
 								<text class="label">毛重 (吨)</text>
@@ -332,6 +338,22 @@
 								<text class="label">损耗B（充装-回厂净重）</text>
 								<view class="input-wrapper">
 									<input class="input" type="number" placeholder="自动计算，可手动修改" v-model="truckLossB" @input="onTruckLossInput" />
+								</view>
+							</view>
+						</view>
+
+						<view class="form-row">
+							<view class="form-item col">
+								<text class="label">出厂净重 (kg)</text>
+								<view class="input-wrapper">
+									<input class="input" type="number" placeholder="TRUCK 出瓶净重" :value="truckOutRow ? truckOutRow.net : ''" @input="onTruckOutNetInput" />
+								</view>
+							</view>
+
+							<view class="form-item col">
+								<text class="label">回厂净重 (kg)</text>
+								<view class="input-wrapper">
+									<input class="input" type="number" placeholder="TRUCK 回瓶净重" :value="truckBackRow ? truckBackRow.net : ''" @input="onTruckBackNetInput" />
 								</view>
 							</view>
 						</view>
@@ -646,6 +668,18 @@
 			// Flow 单价模式
 			isFlowPriceMode() {
 				return this.header.price_unit === 'm3'
+			},
+
+			truckBottleNo() {
+				return this.buildTruckBottleNo(this.header.car_no)
+			},
+
+			truckOutRow() {
+				return (this.outBottles || []).find(r => this.isTruckBottle(r.number)) || null
+			},
+
+			truckBackRow() {
+				return (this.backBottles || []).find(r => this.isTruckBottle(r.number)) || null
 			},
 
 			normalizedCustomerDeposits() {
@@ -1093,6 +1127,16 @@
 						this.loadLastFlowIndexForCustomer(this.header.customer_id)
 					}
 				}
+			},
+			bizMode(v) {
+				if (v === 'truck') {
+					this.ensureTruckBottleRows(this.truckBottleNo)
+				}
+			},
+			'header.car_no'(val) {
+				if (this.bizMode === 'truck') {
+					this.ensureTruckBottleRows(this.buildTruckBottleNo(val))
+				}
 			}
 		},
 
@@ -1242,6 +1286,30 @@
 				this.truckFillNet = ''
 				this.fetchTruckFillNet(payload.vehicle || { _id: this.header.vehicle_id })
 				this.recalcTruckLossB()
+			},
+
+			getOrCreateTruckRow(type) {
+				const arr = type === 'out' ? (this.outBottles || []) : (this.backBottles || [])
+				const found = arr.find(r => this.isTruckBottle(r.number))
+				if (found) return found
+				const row = {
+					number: this.truckBottleNo || '',
+					gross: '',
+					tare: '',
+					net: '',
+					bottleId: null,
+					exists: null,
+					suggestions: [],
+					fromSelect: false,
+					netManual: false
+				}
+				arr.unshift(row)
+				if (type === 'out') {
+					this.outBottles = arr
+				} else {
+					this.backBottles = arr
+				}
+				return row
 			},
 
 			ensureTruckBottleRows(truckNo) {
@@ -1820,6 +1888,22 @@
 				this.truckLossBTouched = true
 				this.truckLossB = e.detail.value
 				this.header.truck_loss_b = this.truckLossB
+			},
+
+			onTruckOutNetInput(e) {
+				const row = this.getOrCreateTruckRow('out')
+				if (!row) return
+				row.net = e.detail.value
+				row.netManual = true
+			},
+
+			onTruckBackNetInput(e) {
+				const row = this.getOrCreateTruckRow('back')
+				if (!row) return
+				row.net = e.detail.value
+				row.netManual = true
+				this.truckLossBTouched = false
+				this.recalcTruckLossB()
 			},
 
 			// 瓶号模糊搜索
