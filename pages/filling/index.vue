@@ -41,19 +41,11 @@
 						</view>
 					</view>
 
-<<<<<<< HEAD
 					<view class="filter-dates" v-if="filterPreset === 'custom'">
 						<picker mode="date" :value="dateRange.start" @change="onDateChange($event, 'start')">
 							<view class="date-input">
 								<text class="date-label">开始</text>
 								<text class="date-value">
-=======
-                                        <view class="filter-dates" v-if="filterPreset === 'custom'">
-                                                <picker mode="date" :value="dateRange.start" @change="onDateChange($event, 'start')">
-                                                        <view class="date-input">
-                                                                <text class="date-label">开始</text>
-                                                                <text class="date-value">
->>>>>>> 25fda4a (init project)
 									{{ dateRange.start || '选择日期' }}
 								</text>
 							</view>
@@ -65,36 +57,10 @@
 								<text class="date-value">
 									{{ dateRange.end || '选择日期' }}
 								</text>
-<<<<<<< HEAD
 							</view>
 						</picker>
 					</view>
 				</view>
-=======
-                                                        </view>
-                                                </picker>
-                                        </view>
-
-                                        <view class="bottle-filter">
-                                                <text class="bottle-filter-label">瓶号筛选</text>
-                                                <input
-                                                        class="bottle-filter-input"
-                                                        placeholder="输入瓶号，支持模糊匹配"
-                                                        v-model.trim="bottleFilter"
-                                                        @confirm="fetchList(true)"
-                                                />
-                                                <button class="btn-soft" size="mini" @click="fetchList(true)">筛选</button>
-                                                <button
-                                                        v-if="bottleFilter"
-                                                        class="btn-link"
-                                                        size="mini"
-                                                        @click="clearBottleFilter"
-                                                >
-                                                        清空
-                                                </button>
-                                        </view>
-                                </view>
->>>>>>> 25fda4a (init project)
 
 				<!-- 概览三个大数字 -->
 				<view class="summary-row" v-if="!loadingSummary">
@@ -137,19 +103,11 @@
 				</view>
 
 				<!-- 差值说明 -->
-<<<<<<< HEAD
 				<view class="diff-row" v-if="!loadingSummary">
 					<view class="diff-item">
 						<text class="diff-label">进站 → 灌装 差值</text>
 						<text class="diff-value" :class="{ danger: Math.abs(diffInboundFillRaw) > diffThreshold }">
 							{{ formatKg(diffInboundFillRaw) }} kg
-=======
-                                <view class="diff-row" v-if="!loadingSummary">
-                                        <view class="diff-item">
-                                                <text class="diff-label">进站 → 灌装 差值</text>
-                                                <text class="diff-value" :class="{ danger: Math.abs(diffInboundFillRaw) > diffThreshold }">
-                                                        {{ formatKg(diffInboundFillRaw) }} kg
->>>>>>> 25fda4a (init project)
 						</text>
 					</view>
 					<view class="diff-item">
@@ -160,40 +118,12 @@
 					</view>
 					<view class="diff-item">
 						<text class="diff-label">进站 → 销售 总差值</text>
-<<<<<<< HEAD
 						<text class="diff-value" :class="{ danger: Math.abs(diffInboundSaleRaw) > diffThreshold }">
 							{{ formatKg(diffInboundSaleRaw) }} kg
 						</text>
 					</view>
 				</view>
 			</view>
-=======
-                                                <text class="diff-value" :class="{ danger: Math.abs(diffInboundSaleRaw) > diffThreshold }">
-                                                        {{ formatKg(diffInboundSaleRaw) }} kg
-                                                </text>
-                                        </view>
-                                </view>
-
-                                <view class="loss-row" v-if="!loadingSummary">
-                                        <view class="loss-item">
-                                                <text class="loss-label">装车 → 进站 亏损</text>
-                                                <text class="loss-value">{{ formatKg(loadToInboundLossRaw) }} kg</text>
-                                        </view>
-                                        <view class="loss-item">
-                                                <text class="loss-label">进站 → 灌装 亏损</text>
-                                                <text class="loss-value">{{ formatKg(diffInboundFillRaw) }} kg</text>
-                                        </view>
-                                        <view class="loss-item">
-                                                <text class="loss-label">灌装 → 销售 亏损</text>
-                                                <text class="loss-value">{{ formatKg(diffFillSaleRaw) }} kg</text>
-                                        </view>
-                                        <view class="loss-item">
-                                                <text class="loss-label">月末库存（估算）</text>
-                                                <text class="loss-value">{{ formatKg(inventoryEstimateRaw) }} kg</text>
-                                        </view>
-                                </view>
-                        </view>
->>>>>>> 25fda4a (init project)
 
 			<!-- 中部：左表单 + 右列表 -->
 			<view class="layout-main">
@@ -439,7 +369,6 @@
 
                                 // 时间范围
 				filterPreset: 'month',
-<<<<<<< HEAD
 				dateRange: {
 					start: '',
 					end: ''
@@ -452,23 +381,6 @@
 					fill_total: 0,
 					sale_total: 0
 				},
-=======
-                                dateRange: {
-                                        start: '',
-                                        end: ''
-                                },
-                                bottleFilter: '',
-
-                                // 概览数据
-                                loadingSummary: false,
-                                summary: {
-                                        inbound_total: 0,
-                                        inbound_load_total: 0,
-                                        inbound_loss_total: 0,
-                                        fill_total: 0,
-                                        sale_total: 0
-                                },
->>>>>>> 25fda4a (init project)
 
 				// 列表
 				loadingList: false,
@@ -537,7 +449,6 @@
 				} = this.summary
 				return +(Number(fill_total || 0) - Number(sale_total || 0))
 			},
-<<<<<<< HEAD
 			diffInboundSaleRaw() {
 				const {
 					inbound_total,
@@ -545,26 +456,6 @@
 				} = this.summary
 				return +(Number(inbound_total || 0) - Number(sale_total || 0))
 			},
-=======
-                        diffInboundSaleRaw() {
-                                const {
-                                        inbound_total,
-                                        sale_total
-                                } = this.summary
-                                return +(Number(inbound_total || 0) - Number(sale_total || 0))
-                        },
-
-                        // 亏损 & 库存
-                        loadToInboundLossRaw() {
-                                const { inbound_loss_total, inbound_load_total, inbound_total } = this.summary
-                                if (inbound_loss_total != null) return +Number(inbound_loss_total || 0)
-                                return +(Number(inbound_load_total || 0) - Number(inbound_total || 0))
-                        },
-                        inventoryEstimateRaw() {
-                                const { inbound_total, sale_total } = this.summary
-                                return +(Number(inbound_total || 0) - Number(sale_total || 0))
-                        },
->>>>>>> 25fda4a (init project)
 
 			// 皮重预警
                         showTareWarning() {
@@ -778,7 +669,6 @@ this.isAdmin = isAdminRole(this.userInfo)
                         },
 
                         async fetchList() {
-<<<<<<< HEAD
                                 if (!this.dateRange.start || !this.dateRange.end) return
 
                                 this.loadingList = true
@@ -789,19 +679,6 @@ this.isAdmin = isAdminRole(this.userInfo)
                                                 start_date: this.dateRange.start,
                                                 end_date: this.dateRange.end
                                         })
-=======
-                                        if (!this.dateRange.start || !this.dateRange.end) return
-
-                                        this.loadingList = true
-                                        try {
-                                                const result = await this.callFilling('list', {
-                                                        page: 1,
-                                                        pageSize: 100,
-                                                        start_date: this.dateRange.start,
-                                                        end_date: this.dateRange.end,
-                                                        bottle_no: this.bottleFilter || undefined
-                                                })
->>>>>>> 25fda4a (init project)
                                         if (result && result.code === 0 && Array.isArray(result.data)) {
                                                 this.fillingList = result.data
                                         } else if (result && result.code !== 401) {
@@ -811,22 +688,10 @@ this.isAdmin = isAdminRole(this.userInfo)
                                 } catch (e) {
                                         console.error('fetchList exception:', e)
                                         this.fillingList = []
-<<<<<<< HEAD
 				} finally {
 					this.loadingList = false
 				}
 			},
-=======
-                                        } finally {
-                                                this.loadingList = false
-                                        }
-                        },
-
-                        clearBottleFilter() {
-                                this.bottleFilter = ''
-                                this.fetchList(true)
-                        },
->>>>>>> 25fda4a (init project)
 
 			// ---- 瓶号联想 / 档案 ----
                         async searchBottle(keyword) {
@@ -1553,42 +1418,12 @@ this.isAdmin = isAdminRole(this.userInfo)
                 background: #ffe4e6;
         }
 
-<<<<<<< HEAD
 	.filter-row {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 16rpx;
 	}
-=======
-        .filter-row {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 16rpx;
-        }
-
-        .bottle-filter {
-                display: flex;
-                align-items: center;
-                gap: 8rpx;
-        }
-
-        .bottle-filter-label {
-                font-size: 24rpx;
-                color: #4b5563;
-        }
-
-        .bottle-filter-input {
-                min-width: 240rpx;
-                height: 64rpx;
-                background: #ffffff;
-                border-radius: 12rpx;
-                border: 1rpx solid #e5e7eb;
-                padding: 0 16rpx;
-                font-size: 26rpx;
-        }
->>>>>>> 25fda4a (init project)
 
 	.filter-tabs {
 		display: flex;
@@ -1698,7 +1533,6 @@ this.isAdmin = isAdminRole(this.userInfo)
 		color: #9aa0ae;
 	}
 
-<<<<<<< HEAD
 	.diff-row {
 		margin-top: 14rpx;
 		padding-top: 12rpx;
@@ -1707,43 +1541,6 @@ this.isAdmin = isAdminRole(this.userInfo)
 		flex-wrap: wrap;
 		row-gap: 6rpx;
 	}
-=======
-        .diff-row {
-                margin-top: 14rpx;
-                padding-top: 12rpx;
-                border-top: 1rpx solid #e5e7eb;
-                display: flex;
-                flex-wrap: wrap;
-                row-gap: 6rpx;
-        }
-
-        .loss-row {
-                margin-top: 12rpx;
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                gap: 12rpx;
-        }
-
-        .loss-item {
-                background: #f8fafc;
-                border: 1rpx dashed #d9e2ec;
-                border-radius: 12rpx;
-                padding: 12rpx 14rpx;
-        }
-
-        .loss-label {
-                font-size: 22rpx;
-                color: #6b7280;
-                display: block;
-                margin-bottom: 6rpx;
-        }
-
-        .loss-value {
-                font-size: 30rpx;
-                font-weight: 700;
-                color: #0f172a;
-        }
->>>>>>> 25fda4a (init project)
 
 	.diff-item {
 		margin-right: 24rpx;

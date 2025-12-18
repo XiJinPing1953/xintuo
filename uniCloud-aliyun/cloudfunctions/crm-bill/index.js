@@ -19,10 +19,6 @@ async function getUserByToken(token) {
 }
 
 function toNumber(v, def = 0) {
-<<<<<<< HEAD
-	const n = Number(v)
-	return Number.isNaN(n) ? def : n
-=======
         const n = Number(v)
         return Number.isNaN(n) ? def : n
 }
@@ -32,7 +28,6 @@ function buildCustomerConditions(customer_id, customer_name) {
         if (customer_id) cond.push(dbCmd.or({ customer_id }, { customerId: customer_id }))
         if (customer_name) cond.push(dbCmd.or({ customer_name }, { customerName: customer_name }))
         return cond
->>>>>>> 25fda4a (init project)
 }
 
 // 文件名用日期格式：把 "YYYY-MM-DD" 变成 "YYYY-12-5"（去掉前导 0）
@@ -235,13 +230,7 @@ exports.main = async (event, context) => {
 		} = data || {}
 
 		// 1) 客户条件：id 或 名称 任意一个匹配即可；都没传 = 全部客户
-<<<<<<< HEAD
-		const customerCond = []
-		if (customer_id) customerCond.push({ customer_id })
-		if (customer_name) customerCond.push({ customer_name })
-=======
                 const customerCond = buildCustomerConditions(customer_id, customer_name)
->>>>>>> 25fda4a (init project)
 
 		// 2) 时间范围：
 		// - 如果前端传的是 date_from / date_to，就直接用
@@ -276,19 +265,11 @@ exports.main = async (event, context) => {
 		//    - 如果有 customer 条件：日期 AND (customer_id = ? OR customer_name = ?)
 		//    - 如果没客户条件：只按日期，等于“全部客户”
 		let where
-<<<<<<< HEAD
-		if (customerCond.length) {
-			where = dbCmd.and(
-				dateCond,
-				dbCmd.or(...customerCond)
-			)
-=======
                 if (customerCond.length) {
                         where = dbCmd.and(dateCond, dbCmd.or(...customerCond))
->>>>>>> 25fda4a (init project)
-		} else {
-			where = dateCond
-		}
+                } else {
+                        where = dateCond
+                }
 
 		// 4) 查出这一段时间内的所有销售记录
 		const listRes = await sales
@@ -369,23 +350,12 @@ exports.main = async (event, context) => {
 			date: dbCmd.gte(date_from).and(dbCmd.lte(date_to))
 		}
 
-<<<<<<< HEAD
-		const customerCond = []
-		if (customer_id) customerCond.push({ customer_id })
-		if (customer_name) customerCond.push({ customer_name })
-
-		if (!customerCond.length) {
-			return {
-				code: 400,
-				msg: '缺少客户参数'
-=======
                 const customerCond = buildCustomerConditions(customer_id, customer_name)
 
                 if (!customerCond.length) {
                         return {
                                 code: 400,
                                 msg: '缺少客户参数'
->>>>>>> 25fda4a (init project)
 			}
 		}
 
@@ -586,21 +556,11 @@ exports.main = async (event, context) => {
 			date: dbCmd.gte(date_from).and(dbCmd.lte(date_to))
 		}
 
-<<<<<<< HEAD
-		const customerCond = []
-		if (customer_id) customerCond.push({ customer_id })
-		if (customer_name) customerCond.push({ customer_name })
-
-		if (!customerCond.length) {
-			return {
-				code: 400,
-=======
                 const customerCond = buildCustomerConditions(customer_id, customer_name)
 
                 if (!customerCond.length) {
                         return {
                                 code: 400,
->>>>>>> 25fda4a (init project)
 				msg: '缺少客户参数'
 			}
 		}
@@ -849,21 +809,11 @@ exports.main = async (event, context) => {
 		conds.push(dateCond)
 
 		// 客户条件：如果有传，就加；没传就导出所有客户
-<<<<<<< HEAD
-		const customerCond = []
-		if (customer_id) customerCond.push({ customer_id })
-		if (customer_name) customerCond.push({ customer_name })
-
-		if (customerCond.length) {
-			conds.push(dbCmd.or(...customerCond))
-		}
-=======
                 const customerCond = buildCustomerConditions(customer_id, customer_name)
 
                 if (customerCond.length) {
                         conds.push(dbCmd.or(...customerCond))
                 }
->>>>>>> 25fda4a (init project)
 
 		// 最终 where
 		let where

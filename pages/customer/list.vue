@@ -29,11 +29,6 @@
               v-model="keyword"
               placeholder="按客户名 / 联系人 / 电话搜索"
               confirm-type="search"
-<<<<<<< HEAD
-              @confirm="onSearch"
-            />
-            <view v-if="keyword" class="search-clear" @click="clearKeyword">×</view>
-=======
               @input="onKeywordInput"
               @confirm="onSearch"
             />
@@ -52,7 +47,6 @@
               </view>
               <view v-if="suggestLoading" class="suggest-loading">查询中…</view>
             </view>
->>>>>>> 25fda4a (init project)
           </view>
 
           <view class="segmented">
@@ -178,14 +172,9 @@ export default {
       finished: false,
       page: 1,
       pageSize: 30,
-
-<<<<<<< HEAD
-=======
       suggestions: [],
       suggestTimer: null,
       suggestLoading: false,
-
->>>>>>> 25fda4a (init project)
       // 当前登录用户信息（用于权限）
       userInfo: {}
     }
@@ -307,12 +296,6 @@ export default {
     onSearch() {
       this.fetchList(true)
     },
-<<<<<<< HEAD
-    clearKeyword() {
-      this.keyword = ''
-      this.fetchList(true)
-    },
-=======
     onKeywordInput(e) {
       this.keyword = e.detail.value
       if (this.suggestTimer) clearTimeout(this.suggestTimer)
@@ -358,7 +341,6 @@ export default {
         this.suggestLoading = false
       }
     },
->>>>>>> 25fda4a (init project)
     onFilterChange(type) {
       if (this.filterActive === type) return
       this.filterActive = type
@@ -570,10 +552,7 @@ export default {
     align-items: center;
     padding: 0 26rpx;
     box-sizing: border-box;
-<<<<<<< HEAD
-=======
     position: relative;
->>>>>>> 25fda4a (init project)
   }
 
   .search-input {
@@ -595,8 +574,6 @@ export default {
     color: #c0c4d4;
   }
 
-<<<<<<< HEAD
-=======
   .suggest-panel {
     position: absolute;
     top: 90rpx;
@@ -635,7 +612,6 @@ export default {
     color: #6b7280;
   }
 
->>>>>>> 25fda4a (init project)
   /* 分段选择 */
   .segmented {
     margin-left: 16rpx;
