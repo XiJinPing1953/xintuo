@@ -719,7 +719,8 @@ this.isAdmin = isAdminRole(this.userInfo)
                                         action: 'search',
                                         data: {
                                                 keyword: key,
-                                                limit: 20
+                                                limit: 20,
+                                                include_truck: key.toUpperCase().startsWith('TRUCK-')
                                         }
                                 })
                                         .then(res => {

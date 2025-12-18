@@ -129,6 +129,7 @@ exports.main = async (event, context) => {
                                                         // 如果本次灌装录了皮重，就拿来当铭牌皮重初始值
                                                         tare_weight: tare != null ? tare : null,
                                                         status: 'in_station',
+                                                        kind: no.toUpperCase().startsWith('TRUCK-') ? 'truck' : 'bottle',
                                                         remark: '由灌装记录自动建档'
                                                 }
                                         }
@@ -449,6 +450,7 @@ exports.main = async (event, context) => {
 				net_fill: netFill,
 				operator: row.operator || '',
 				remark: row.remark || '',
+				kind: b.kind || 'bottle',
 
 				// 瓶档字段（快照）
 				tare_weight: tareWeight,

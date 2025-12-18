@@ -227,6 +227,64 @@ exports.main = async (event, context) => {
     const truck_tare = toNumber(truckTare)
     const truck_net = toNumber(truckNet)
 
+    const buildTruckBottleNo = (plate) => {
+      const p = (plate || '').trim()
+      if (!p) return ''
+      return `TRUCK-${p}`
+    }
+
+    let truckBottleNo = ''
+    let truckBottleId = null
+
+    if (biz_mode === 'truck') {
+      if (!car_no) {
+        return { code: 400, msg: '整车模式需要选择车辆/车牌' }
+      }
+      truckBottleNo = buildTruckBottleNo(car_no)
+      // 确保出瓶里有 TRUCK 行
+      if (!out_items.some(r => r.bottle_no === truckBottleNo)) {
+        out_items.unshift({
+          bottle_no: truckBottleNo,
+          gross: toNumber(truckGross, null),
+          tare: toNumber(truckTare, null),
+          net: truck_net,
+          bottle_id: null
+        })
+      }
+      // 回瓶行若存在 TRUCK，稍后补 id；如果没有，保持为空（回站时再补）
+    }
+
+    // truck 模式：确保 TRUCK 瓶档存在
+    if (truckBottleNo) {
+      const truckExistRes = await bottles.where({ number: truckBottleNo }).limit(1).get()
+      let truckDoc = truckExistRes.data && truckExistRes.data[0]
+      if (!truckDoc) {
+        const nowTs = Date.now()
+        const addRes = await bottles.add({
+          number: truckBottleNo,
+          kind: 'truck',
+          status: 'in_station',
+          created_at: nowTs,
+          updated_at: nowTs,
+          created_by: user._id,
+          updated_by: user._id
+        })
+        truckBottleId = addRes.id
+      } else {
+        truckBottleId = truckDoc._id
+      }
+      out_items.forEach(r => {
+        if (r.bottle_no === truckBottleNo && !r.bottle_id) {
+          r.bottle_id = truckBottleId
+        }
+      })
+      back_items.forEach(r => {
+        if (r.bottle_no === truckBottleNo && !r.bottle_id) {
+          r.bottle_id = truckBottleId
+        }
+      })
+    }
+
     // ========= 强关联 bottle_id：对所有 bottle_id 为空的行做一次号 → _id 映射 =========
     const needLinkNosSet = new Set();
     [...out_items, ...back_items].forEach(row => {
