@@ -92,19 +92,25 @@ exports.main = async (event, context) => {
 			}
 		}
 
-		const tare = toNumber(tare_fill, null)
-		const gross = toNumber(gross_fill, null)
-		let net = toNumber(net_fill, null)
+			const tare = toNumber(tare_fill, null)
+			const gross = toNumber(gross_fill, null)
+			let net = toNumber(net_fill, null)
 
-		if (tare == null || gross == null) {
-			return {
-				code: 400,
-				msg: 'tare_fill 和 gross_fill 必填且为数字'
+			if (tare == null || gross == null) {
+				return {
+					code: 400,
+					msg: 'tare_fill 和 gross_fill 必填且为数字'
+				}
 			}
-		}
-		if (net == null) {
-			net = gross - tare
-		}
+			if (gross <= tare) {
+				return {
+					code: 400,
+					msg: 'gross_fill 必须大于 tare_fill'
+				}
+			}
+			if (net == null) {
+				net = gross - tare
+			}
 
 		const now = Date.now()
 		const dateStr = normalizeDateStr(date || now)
@@ -214,7 +220,8 @@ exports.main = async (event, context) => {
 				pageSize = 50,
 				start_date,
 				end_date,
-				bottle_no
+				bottle_no,
+				bottle_no_keyword
 		} = data || {}
 
 		const where = {}
@@ -233,6 +240,13 @@ exports.main = async (event, context) => {
 
 		if (bottle_no) {
 			where.bottle_no = (bottle_no || '').trim()
+		}
+
+		if (bottle_no_keyword) {
+			const kw = (bottle_no_keyword || '').trim()
+			if (kw) {
+				where.bottle_no = new RegExp(escapeRegExp(kw), 'i')
+			}
 		}
 
 		const skip = (page - 1) * pageSize

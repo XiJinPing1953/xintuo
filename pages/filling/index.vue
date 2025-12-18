@@ -221,16 +221,17 @@
 
 							<view class="form-row">
 								<text class="form-label">灌装净重 (kg)</text>
-								<view class="form-static">
-									<text :class="{
-                      'net-value': true,
-                      danger: netFillRaw <= 0
-                    }">
-										{{ netFillText }}
-									</text>
-									<text class="form-hint" v-if="netFillRaw <= 0">
-										净重≤0，请检查皮重/毛重是否录反
-									</text>
+								<view class="input-wrapper">
+									<input
+										class="form-input"
+										:disabled="!isAdmin"
+										type="number"
+										v-model="form.net_fill"
+										placeholder="可手动填写；留空则自动按毛重-皮重"
+									/>
+								</view>
+								<view class="form-hint" v-if="netFillRaw <= 0">
+									净重≤0，请检查皮重/毛重是否录反
 								</view>
 							</view>
 
@@ -286,6 +287,20 @@
 							<button class="btn-secondary btn-export" @click="exportFilling">
 								导出
 							</button>
+						</view>
+
+						<view class="filter-row">
+							<view class="filter-item">
+								<text class="label">瓶号筛选</text>
+								<view class="input-wrapper">
+									<input
+										class="input"
+										placeholder="输入瓶号或 TRUCK- 前缀"
+										v-model="bottleFilter"
+										@confirm="fetchList"
+									/>
+								</view>
+							</view>
 						</view>
 
 						<view v-if="loadingList" class="list-empty">
@@ -385,16 +400,18 @@
 				// 列表
 				loadingList: false,
 				fillingList: [],
+				bottleFilter: '',
 
-                                // 灌装表单（新增 / 编辑共用）
-                                form: {
-                                        bottle_no: '',
-                                        date: '',
-                                        tare_fill: '',
-                                        gross_fill: '',
-                                        operator: '',
-                                        remark: ''
-                                },
+				// 灌装表单（新增 / 编辑共用）
+				form: {
+					bottle_no: '',
+					date: '',
+					tare_fill: '',
+					gross_fill: '',
+					net_fill: '',
+					operator: '',
+					remark: ''
+				},
 				submitting: false,
 
 				// 差值阈值
@@ -425,6 +442,11 @@
 		computed: {
 			// 当前表单灌装净重
 			netFillRaw() {
+				const manual = this.form.net_fill
+				if (manual !== '' && manual != null) {
+					const n = Number(manual)
+					return isNaN(n) ? 0 : n
+				}
 				const tare = Number(this.form.tare_fill)
 				const gross = Number(this.form.gross_fill)
 				if (isNaN(tare) || isNaN(gross)) return 0
@@ -683,7 +705,8 @@ this.isAdmin = isAdminRole(this.userInfo)
                                                 page: 1,
                                                 pageSize: 100,
                                                 start_date: this.dateRange.start,
-                                                end_date: this.dateRange.end
+                                                end_date: this.dateRange.end,
+                                                bottle_no_keyword: (this.bottleFilter || '').trim()
                                         })
                                         if (!result) return
                                         if (result && result.code === 0 && Array.isArray(result.data)) {
@@ -832,17 +855,18 @@ this.isAdmin = isAdminRole(this.userInfo)
 				}
 				if (!item || !item._id) return
 
-                                this.isEditing = true
-                                this.editingId = item._id
+				this.isEditing = true
+				this.editingId = item._id
 
-                                this.form = {
-                                        bottle_no: item.bottle_no || '',
-                                        date: item.date || this.todayStr(),
-                                        tare_fill: item.tare_fill != null ? String(item.tare_fill) : '',
-                                        gross_fill: item.gross_fill != null ? String(item.gross_fill) : '',
-                                        operator: item.operator || '',
-                                        remark: item.remark || ''
-                                }
+				this.form = {
+					bottle_no: item.bottle_no || '',
+					date: item.date || this.todayStr(),
+					tare_fill: item.tare_fill != null ? String(item.tare_fill) : '',
+					gross_fill: item.gross_fill != null ? String(item.gross_fill) : '',
+					net_fill: item.net_fill != null ? String(item.net_fill) : '',
+					operator: item.operator || '',
+					remark: item.remark || ''
+				}
 
 				this.bottleSuggestions = []
 				this.bottleExists = true
@@ -884,20 +908,21 @@ this.isAdmin = isAdminRole(this.userInfo)
 
 				const tare = Number(this.form.tare_fill)
 				const gross = Number(this.form.gross_fill)
-                                if (isNaN(tare) || isNaN(gross)) {
-                                        uni.showToast({
-                                                title: '请正确填写皮重和毛重',
-                                                icon: 'none'
-                                        })
-                                        return
-                                }
-                                if (gross <= tare) {
-                                        uni.showToast({
-                                                title: '毛重要大于皮重',
-                                                icon: 'none'
-                                        })
-                                        return
-                                }
+				const netManual = this.form.net_fill !== '' ? Number(this.form.net_fill) : null
+				if (isNaN(tare) || isNaN(gross)) {
+					uni.showToast({
+						title: '请正确填写皮重和毛重',
+						icon: 'none'
+					})
+					return
+				}
+				if (gross <= tare) {
+					uni.showToast({
+						title: '毛重要大于皮重',
+						icon: 'none'
+					})
+					return
+				}
 
                                 this.submitting = true
                                 const bottleNo = (this.form.bottle_no || '').trim()
@@ -923,8 +948,8 @@ this.isAdmin = isAdminRole(this.userInfo)
                                                 }
                                         }
 
-                                        if (existsFlag) {
-                                                const result = await this.doCreateFilling(tare, gross)
+					if (existsFlag) {
+						const result = await this.doCreateFilling(tare, gross, netManual)
 						if (result.code === 0) {
 							uni.showToast({
 								title: '已保存',
@@ -956,6 +981,7 @@ this.isAdmin = isAdminRole(this.userInfo)
                                                                                 data: {
                                                                                         number: bottleNo,
                                                                                         tare_weight: tare,
+                                                                                        kind: bottleNo.toUpperCase().startsWith('TRUCK-') ? 'truck' : 'bottle',
                                                                                         remark: '由灌装页面自动建档'
                                                                                 }
                                                                         })
@@ -978,7 +1004,7 @@ this.isAdmin = isAdminRole(this.userInfo)
 									return
 								}
 
-                                                        const result = await this.doCreateFilling(tare, gross)
+                                                        const result = await this.doCreateFilling(tare, gross, netManual)
 								if (result.code === 0) {
 									uni.showToast({
 										title: '已建档并保存',
@@ -1062,7 +1088,8 @@ this.isAdmin = isAdminRole(this.userInfo)
 
                                 const fillDate = this.form.date || this.todayStr()
 
-                                const net = gross - tare
+                                const netManual = this.form.net_fill !== '' ? Number(this.form.net_fill) : null
+                                const net = netManual != null && !isNaN(netManual) ? netManual : (gross - tare)
                                 this.submitting = true
 
                                 try {
@@ -1101,8 +1128,8 @@ this.isAdmin = isAdminRole(this.userInfo)
 			},
 
 			// ---- 实际写库：创建灌装记录 ----
-                        async doCreateFilling(tare, gross) {
-                                const net = gross - tare
+                        async doCreateFilling(tare, gross, netManual) {
+                                const net = netManual != null && !isNaN(netManual) ? netManual : (gross - tare)
                                 const res = await this.callFilling('create', {
                                         bottle_no: this.form.bottle_no,
                                         date: this.form.date || this.todayStr(),
@@ -1148,6 +1175,7 @@ this.isAdmin = isAdminRole(this.userInfo)
                                         date: this.todayStr(),
                                         tare_fill: '',
                                         gross_fill: '',
+                                        net_fill: '',
                                         operator: (this.userInfo && this.userInfo.real_name) || (this.userInfo && this.userInfo.username) || '',
                                         remark: ''
                                 }
