@@ -41,6 +41,10 @@ function toNumber(v, def = null) {
 	return Number.isNaN(n) ? def : n
 }
 
+function escapeRegExp(str = '') {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // 统一用 YYYY-MM-DD 字符串
 function normalizeDateStr(tsOrStr) {
 	if (!tsOrStr) return ''
@@ -102,14 +106,14 @@ exports.main = async (event, context) => {
 					msg: 'tare_fill 和 gross_fill 必填且为数字'
 				}
 			}
-			if (gross <= tare) {
-				return {
-					code: 400,
-					msg: 'gross_fill 必须大于 tare_fill'
-				}
-			}
 			if (net == null) {
 				net = gross - tare
+			}
+			if (net < 0) {
+				return {
+					code: 400,
+					msg: 'net_fill 不能小于 0'
+				}
 			}
 
 		const now = Date.now()
@@ -273,44 +277,55 @@ exports.main = async (event, context) => {
 	// =========================
 	// 3. 汇总：进站 / 灌装 / 销售 总量  action: summary
 	// =========================
-	if (action === 'summary') {
-		const {
-			start_date,
-			end_date,
-			date_from,
-			date_to
-		} = data || {}
+		if (action === 'summary') {
+			const {
+				start_date,
+				end_date,
+				date_from,
+				date_to,
+				bottle_no_keyword
+			} = data || {}
 
-		// 和 crm-gas-in 一样，兼容两种写法
-		const start = (start_date || date_from || '').trim()
-		const end = (end_date || date_to || '').trim()
+			// 和 crm-gas-in 一样，兼容两种写法
+			const start = (start_date || date_from || '').trim()
+			const end = (end_date || date_to || '').trim()
 
-		// 公共日期条件
-		const buildWhereByDate = () => {
-			const whereList = []
+			// 公共日期条件
+			const dateWhereList = []
 			if (start && end) {
-				whereList.push({
+				dateWhereList.push({
 					date: dbCmd.gte(start).and(dbCmd.lte(end))
 				})
 			} else if (start) {
-				whereList.push({
+				dateWhereList.push({
 					date: dbCmd.gte(start)
 				})
 			} else if (end) {
-				whereList.push({
+				dateWhereList.push({
 					date: dbCmd.lte(end)
 				})
 			}
-			return whereList.length ? dbCmd.and(...whereList) : {}
-		}
 
-		const where = buildWhereByDate()
+			const baseWhere = dateWhereList.length ? dbCmd.and(...dateWhereList) : {}
+
+			const fillWhereList = []
+			if (dateWhereList.length) {
+				fillWhereList.push(baseWhere)
+			}
+			if (bottle_no_keyword) {
+				const kw = (bottle_no_keyword || '').trim()
+				if (kw) {
+					fillWhereList.push({ bottle_no: new RegExp(escapeRegExp(kw), 'i') })
+				}
+			}
+
+			const fillWhere = fillWhereList.length ? dbCmd.and(...fillWhereList) : baseWhere
 
 		try {
 			// 1）灌装总量（站内灌装净重，kg）
 			const fillAgg = await fillingCol
 				.aggregate()
-				.match(where)
+				.match(fillWhere)
 				.group({
 					_id: null,
 					total_net: dbCmd.aggregate.sum('$net_fill'),
@@ -323,9 +338,9 @@ exports.main = async (event, context) => {
 			const fill_count = toNumber(fillRow.total_count, 0) || 0
 
 			// 2）进站总量（车进站净重，kg）
-                        const inboundAgg = await gasInCol
-                                .aggregate()
-                                .match(where)
+			const inboundAgg = await gasInCol
+				.aggregate()
+				.match(baseWhere)
                                 .group({
                                         _id: null,
                                         total_net: dbCmd.aggregate.sum('$net_weight'),
@@ -346,7 +361,7 @@ exports.main = async (event, context) => {
 			//    total_net_weight = out_net_total - back_net_total
 			const saleAgg = await salesCol
 				.aggregate()
-				.match(where)
+				.match(baseWhere)
 				.group({
 					_id: null,
 					total_net: dbCmd.aggregate.sum('$total_net_weight'),
@@ -387,7 +402,8 @@ exports.main = async (event, context) => {
 	if (action === 'export') {
 		const {
 			start_date,
-			end_date
+			end_date,
+			bottle_no_keyword
 		} = data || {}
 
 		const where = {}
@@ -400,6 +416,13 @@ exports.main = async (event, context) => {
 			where.date = dbCmd.gte(start)
 		} else if (end) {
 			where.date = dbCmd.lte(end)
+		}
+
+		if (bottle_no_keyword) {
+			const kw = (bottle_no_keyword || '').trim()
+			if (kw) {
+				where.bottle_no = new RegExp(escapeRegExp(kw), 'i')
+			}
 		}
 
 		// 暂给一个上限，够你日常导出用；真要全库导出可以再拆批次

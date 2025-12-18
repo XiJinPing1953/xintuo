@@ -239,20 +239,33 @@ exports.main = async (event, context) => {
     // 已存在？直接返回
     const exist = await bottlesCol.where({ number: no }).limit(1).get()
     if (exist.data && exist.data.length) {
+      const existed = exist.data[0]
+      const shouldTruck = no.toUpperCase().startsWith('TRUCK-')
+      if (shouldTruck && existed.kind !== 'truck') {
+        await bottlesCol.doc(existed._id).update({
+          kind: 'truck',
+          updated_at: Date.now(),
+          updated_by: user._id
+        })
+        existed.kind = 'truck'
+      }
       return {
         code: 0,
         msg: 'exists',
-        id: exist.data[0]._id,
-        data: exist.data[0]
+        id: existed._id,
+        data: existed
       }
     }
+
+    const isTruck = no.toUpperCase().startsWith('TRUCK-')
+    const finalKind = isTruck ? 'truck' : (kind || 'bottle')
 
     const now = Date.now()
     const doc = {
       number: no,
       tare_weight: toNumber(tare_weight, null),
       status: status || BOTTLE_STATUS.IN_STATION,
-      kind: kind || 'bottle',
+      kind: finalKind,
       remark: '',
 
       // 旧字段（逐步废弃，但保留以兼容旧逻辑）
@@ -303,14 +316,45 @@ exports.main = async (event, context) => {
   // 3.1 一次性迁移：补全 kind
   // =========================
   if (action === 'migrateKind') {
-    const res = await bottlesCol.where({ kind: dbCmd.exists(false) }).count()
-    if (res.total > 0) {
-      await bottlesCol.where({ kind: dbCmd.exists(false) }).update({ kind: 'bottle' })
+    if (user.role !== 'admin') {
+      return { code: 403, msg: '仅管理员可执行迁移' }
     }
+
+    const now = Date.now()
+    // 1) 缺失 kind 的补齐为 bottle
+    const missingKindRes = await bottlesCol.where({ kind: dbCmd.exists(false) }).count()
+    let filled = 0
+    if (missingKindRes.total > 0) {
+      await bottlesCol
+        .where({ kind: dbCmd.exists(false) })
+        .update({ kind: 'bottle', updated_at: now, updated_by: user._id })
+      filled = missingKindRes.total
+    }
+
+    // 2) TRUCK-* 强制改为 truck
+    const truckCond = {
+      number: new RegExp('^TRUCK-', 'i'),
+      kind: dbCmd.neq('truck')
+    }
+    const truckFixRes = await bottlesCol.where(truckCond).count()
+    let truckFixed = 0
+    if (truckFixRes.total > 0) {
+      await bottlesCol
+        .where(truckCond)
+        .update({ kind: 'truck', updated_at: now, updated_by: user._id })
+      truckFixed = truckFixRes.total
+    }
+
+    await recordLog(user, 'bottle_migrate_kind', {
+      filled_missing: filled,
+      truck_fixed: truckFixed
+    })
+
     return {
       code: 0,
       msg: 'ok',
-      filled: res.total
+      filled_missing: filled,
+      truck_fixed: truckFixed
     }
   }
 
@@ -343,12 +387,15 @@ exports.main = async (event, context) => {
       }
     }
 
+    const isTruck = no.toUpperCase().startsWith('TRUCK-')
+    const finalKind = isTruck ? 'truck' : (kind || 'bottle')
+
     const now = Date.now()
     const doc = {
       number: no,
       tare_weight: toNumber(tare_weight, null),
       status: status || BOTTLE_STATUS.IN_STATION,
-      kind: kind || 'bottle',
+      kind: finalKind,
       remark: remark || '',
 
       // 旧字段（逐步废弃）
