@@ -147,6 +147,9 @@ export default {
       priceUnitOptions: ['元/kg', '元/瓶', '元/立方米'],
       priceUnitIndex: 0,
 
+      unitPriceTouched: false,
+      priceUnitTouched: false,
+
       // ===== 调试/并发控制 =====
       debugSuggest: false,        // 需要时你手动打开：__sale_basic_info_vm__.debugSuggest = true
       _suggestSeq: 0              // 防止旧请求覆盖新请求
@@ -175,6 +178,11 @@ export default {
         let mode = h.biz_mode || 'bottle'
         if (mode !== 'bottle' && mode !== 'truck') mode = 'bottle'
         this.localMode = mode
+
+        if (!h.customer_id && !h.customer_name) {
+          this.unitPriceTouched = false
+          this.priceUnitTouched = false
+        }
       }
     }
   },
@@ -256,11 +264,11 @@ export default {
         customer_name: item.name
       }
 
-      if (this.isEmptyPrice(this.header.unit_price) && item.default_unit_price != null) {
+      if (!this.unitPriceTouched && this.isEmptyPrice(this.header.unit_price) && item.default_unit_price != null) {
         patch.unit_price = item.default_unit_price
       }
 
-      if (!this.header.price_unit && item.default_price_unit) {
+      if (!this.priceUnitTouched && item.default_price_unit) {
         const unit = this.mapPriceUnit(item.default_price_unit)
         patch.price_unit = unit
         const map = { kg: 0, bottle: 1, m3: 2 }
@@ -344,6 +352,7 @@ export default {
       this.vehicleKeyword = plate
       this.vehicleSuggests = []
       this.updateHeader({ vehicle_id: item._id || '', car_no: plate })
+      this.$emit('vehicle-select', { vehicle: item, plate_no: plate })
     },
 
     /* ===== 配送员联想 ===== */
@@ -395,10 +404,12 @@ export default {
     },
 
     onUnitPriceInput(e) {
+      this.unitPriceTouched = true
       this.updateHeader({ unit_price: e.detail.value })
     },
 
     onPriceUnitChange(e) {
+      this.priceUnitTouched = true
       const idx = Number(e.detail.value)
       this.priceUnitIndex = idx
       let unit = 'kg'
