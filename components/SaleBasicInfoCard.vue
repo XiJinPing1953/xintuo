@@ -331,7 +331,6 @@ export default {
     onVehicleInput(e) {
       const val = e.detail.value.trim()
       this.vehicleKeyword = val
-      this.updateHeader({ car_no: val, vehicle_id: '' })
 
       if (!val) {
         this.vehicleSuggests = []
