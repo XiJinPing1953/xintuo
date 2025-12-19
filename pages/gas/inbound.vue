@@ -54,22 +54,39 @@
 						</picker>
 					</view>
 
-					<view class="filter-item keyword">
-						<text class="label">关键词</text>
-						<view class="input-wrapper">
-							<input
-								class="input"
-								v-model="filters.keyword"
-								placeholder="按车牌 / 罐车号 / 液厂搜索"
-								confirm-type="search"
-								@confirm="loadList"
-							/>
+						<view class="filter-item keyword">
+							<text class="label">关键词</text>
+							<view class="input-wrapper">
+								<input
+									class="input"
+									v-model="filters.keyword"
+									placeholder="按车牌 / 罐车号 / 液厂搜索"
+									confirm-type="search"
+									@input="onKeywordInput"
+									@confirm="loadList"
+								/>
+							</view>
+							<view
+								v-if="keywordSuggests.length || keywordSuggestLoading"
+								class="suggest-panel"
+							>
+								<view
+									v-for="item in keywordSuggests"
+									:key="item"
+									class="suggest-item"
+									@tap="onSelectKeyword(item)"
+								>
+									{{ item }}
+								</view>
+								<view v-if="keywordSuggestLoading" class="suggest-loading">
+									查询中…
+								</view>
+							</view>
 						</view>
-					</view>
 
-					<view class="filter-item btns">
-						<button class="btn-soft" @click="resetFilter">重置</button>
-						<button class="btn-primary btn-query" @click="loadList">
+						<view class="filter-item btns">
+							<button class="btn-soft" @click="resetFilter">重置</button>
+							<button class="btn-primary btn-query" @click="loadList">
 							查询
 						</button>
 					</view>
@@ -257,17 +274,10 @@
 							</view>
 						</view>
 
-<<<<<<< HEAD
 						<!-- 净重 / 亏损 -->
 						<view class="form-row">
 							<view class="form-item half">
 								<text class="label">净重（可自动计算）</text>
-=======
-                                                <!-- 净重 / 亏损 -->
-                                                <view class="form-row">
-                                                        <view class="form-item half">
-                                                                <text class="label">净重（可自动计算）</text>
->>>>>>> 25fda4a (init project)
 								<view class="input-wrapper">
 									<input
 										class="input"
@@ -276,7 +286,6 @@
 										placeholder="毛重 - 皮重"
 									/>
 								</view>
-<<<<<<< HEAD
 							</view>
 
 							<view class="form-item half">
@@ -291,22 +300,6 @@
 								</view>
 							</view>
 						</view>
-=======
-                                                        </view>
-
-                                                        <view class="form-item half">
-                                                                <text class="label">亏损数量（自动=装车-净重）</text>
-                                                                <view class="input-wrapper readonly-input">
-                                                                        <input
-                                                                                class="input"
-                                                                                :value="form.loss_amount"
-                                                                                disabled
-                                                                                placeholder="自动计算"
-                                                                        />
-                                                                </view>
-                                                        </view>
-                                                </view>
->>>>>>> 25fda4a (init project)
 
 						<!-- 单价 / 金额 -->
 						<view class="form-row">
@@ -414,6 +407,9 @@ export default {
         date_to: '',
         keyword: ''
       },
+      keywordSuggests: [],
+      keywordSuggestLoading: false,
+      keywordSuggestTimer: null,
 
       showEdit: false,
       saving: false,
@@ -447,15 +443,7 @@ export default {
       let totalAmount = 0
       this.list.forEach(row => {
         totalNet += Number(row.net_weight) || 0
-<<<<<<< HEAD
         totalLoss += Number(row.loss_amount) || 0
-=======
-        const loss =
-          row.loss_amount != null
-            ? Number(row.loss_amount) || 0
-            : Number(row.load_weight || 0) - Number(row.net_weight || 0)
-        totalLoss += loss
->>>>>>> 25fda4a (init project)
         totalAmount += Number(row.amount) || 0
       })
       return {
@@ -471,18 +459,6 @@ export default {
     }
   },
 
-<<<<<<< HEAD
-=======
-  watch: {
-    'form.load_weight'() {
-      this.autoCalcLoss()
-    },
-    'form.net_weight'() {
-      this.autoCalcLoss()
-    }
-  },
-
->>>>>>> 25fda4a (init project)
   onLoad() {
     // 登录校验（和其它页面对齐）
     if (!ensureLogin()) return
@@ -521,6 +497,82 @@ export default {
       return `${yyyy}-${mm}-${dd}`
     },
 
+    normalizeKeyword(str) {
+      return String(str || '').trim()
+    },
+
+    onKeywordInput(e) {
+      const kw = this.normalizeKeyword(e.detail.value)
+      this.filters.keyword = kw
+      if (this.keywordSuggestTimer) clearTimeout(this.keywordSuggestTimer)
+      if (!kw) {
+        this.keywordSuggests = []
+        this.keywordSuggestLoading = false
+        return
+      }
+      this.keywordSuggestTimer = setTimeout(() => {
+        this.fetchKeywordSuggests()
+      }, 200)
+    },
+
+    onSelectKeyword(text) {
+      this.filters.keyword = text
+      this.keywordSuggests = []
+      this.loadList()
+    },
+
+    async fetchKeywordSuggests() {
+      const kw = this.normalizeKeyword(this.filters.keyword)
+      if (!kw) {
+        this.keywordSuggests = []
+        return
+      }
+
+      this.keywordSuggestLoading = true
+      try {
+        const res = await callApi(
+          'crm-gas-in',
+          'list',
+          {
+            date_from: this.filters.date_from || undefined,
+            date_to: this.filters.date_to || undefined,
+            keyword: kw
+          },
+          { showErrorToast: false, silentAuthRedirect: true }
+        )
+
+        if (res.code === 401) {
+          ensureLogin()
+          return
+        }
+
+        const remoteList = res.code === 0 && Array.isArray(res.data) ? res.data : []
+        const merged = [...remoteList, ...(this.list || [])]
+        const lowerKw = kw.toLowerCase()
+        const uniq = []
+        const pushVal = (v) => {
+          const text = this.normalizeKeyword(v)
+          if (!text) return
+          if (!text.toLowerCase().includes(lowerKw)) return
+          if (!uniq.includes(text)) uniq.push(text)
+        }
+
+        merged.forEach((row) => {
+          pushVal(row.plate_no)
+          pushVal(row.tanker_no)
+          pushVal(row.factory)
+          pushVal(row.sender)
+        })
+
+        this.keywordSuggests = uniq.slice(0, 10)
+      } catch (error) {
+        console.error('fetchKeywordSuggests error', error)
+        this.keywordSuggests = []
+      } finally {
+        this.keywordSuggestLoading = false
+      }
+    },
+
     onDateFromChange(e) {
       this.filters.date_from = e.detail.value
     },
@@ -530,6 +582,8 @@ export default {
 
     resetFilter() {
       this.filters.keyword = ''
+      this.keywordSuggests = []
+      this.keywordSuggestLoading = false
       const today = new Date()
       const end = this.formatDate(today)
       const startDate = new Date(today.getTime() - 6 * 24 * 3600 * 1000)
@@ -561,7 +615,6 @@ export default {
         const kg2ton = v => Number(v || 0) / 1000
         const rawList = res.data || res.list || []
 
-<<<<<<< HEAD
         this.list = rawList.map(row => ({
           ...row,
           load_weight: kg2ton(row.load_weight),
@@ -571,24 +624,6 @@ export default {
           loss_amount: kg2ton(row.loss_amount)
           // unit_price / amount 保持原样，单位本来就是 元/吨、元
         }))
-=======
-        this.list = rawList.map(row => {
-          const loadTon = kg2ton(row.load_weight)
-          const netTon = kg2ton(row.net_weight)
-          const lossTon =
-            row.loss_amount != null ? kg2ton(row.loss_amount) : Number((loadTon - netTon).toFixed(3))
-
-          return {
-            ...row,
-            load_weight: loadTon,
-            gross_weight: kg2ton(row.gross_weight),
-            tare_weight: kg2ton(row.tare_weight),
-            net_weight: netTon,
-            loss_amount: lossTon,
-            // unit_price / amount 保持原样，单位本来就是 元/吨、元
-          }
-        })
->>>>>>> 25fda4a (init project)
       } catch (e) {
         console.error('loadList error', e)
         uni.showToast({
@@ -771,10 +806,6 @@ export default {
           remark: ''
         }
       }
-<<<<<<< HEAD
-=======
-      this.autoCalcLoss()
->>>>>>> 25fda4a (init project)
       this.showEdit = true
     },
 
@@ -793,28 +824,10 @@ export default {
       if (gross && tare) {
         const net = gross - tare
         this.form.net_weight = net ? net.toFixed(2) : ''
-<<<<<<< HEAD
-=======
-        this.autoCalcLoss()
->>>>>>> 25fda4a (init project)
         this.autoCalcAmount()
       }
     },
 
-<<<<<<< HEAD
-=======
-    autoCalcLoss() {
-      const load = Number(this.form.load_weight)
-      const net = Number(this.form.net_weight)
-      if (!Number.isFinite(load) || !Number.isFinite(net) || !load || net < 0) {
-        this.form.loss_amount = ''
-        return
-      }
-      const loss = load - net
-      this.form.loss_amount = Number.isFinite(loss) ? loss.toFixed(3) : ''
-    },
-
->>>>>>> 25fda4a (init project)
     autoCalcAmount() {
       const net = Number(this.form.net_weight) || 0
       const price = Number(this.form.unit_price) || 0
@@ -894,12 +907,9 @@ export default {
         return uni.showToast({ title: '净重不能为负，请检查毛重/皮重', icon: 'none' })
       }
 
-<<<<<<< HEAD
       const lossAmount = this.normalizeTonNumber(this.form.loss_amount, '亏损')
       if (lossAmount === false) return
 
-=======
->>>>>>> 25fda4a (init project)
       const unitPrice = this.normalizePrice(this.form.unit_price, '单价', { required: true })
       if (unitPrice === false) return
 
@@ -909,12 +919,6 @@ export default {
         amount = Number((net * unitPrice).toFixed(2))
       }
 
-<<<<<<< HEAD
-=======
-      const lossAmount =
-        loadWeight != null && net != null ? Number((loadWeight - net).toFixed(3)) : null
-
->>>>>>> 25fda4a (init project)
       const ton2kg = v => (v == null ? 0 : Math.round(v * 1000))
 
       const payload = {
@@ -1107,6 +1111,7 @@ export default {
 	.filter-item.keyword {
 		flex: 1;
 		min-width: 40%;
+		position: relative;
 	}
 
 	.filter-item.btns {
@@ -1136,7 +1141,6 @@ export default {
 		box-shadow: 0 8rpx 20rpx rgba(16, 46, 90, 0.04);
 	}
 
-<<<<<<< HEAD
 	.input {
 		flex: 1;
 		border: none;
@@ -1144,20 +1148,33 @@ export default {
 		font-size: 26rpx;
 		color: #222;
 	}
-=======
-        .input {
-                flex: 1;
-                border: none;
-                background: transparent;
-                font-size: 26rpx;
-                color: #222;
-        }
 
-        .readonly-input .input {
-                color: #6b7280;
-                background-color: #f3f4f6;
-        }
->>>>>>> 25fda4a (init project)
+	.suggest-panel {
+		position: absolute;
+		top: 100rpx;
+		left: 8rpx;
+		right: 8rpx;
+		background: #ffffff;
+		border-radius: 12rpx;
+		box-shadow: 0 10rpx 26rpx rgba(0, 0, 0, 0.08);
+		max-height: 320rpx;
+		overflow-y: auto;
+		z-index: 10;
+	}
+
+	.suggest-item {
+		padding: 16rpx 20rpx;
+		border-bottom: 1rpx solid #f0f0f0;
+		font-size: 26rpx;
+		color: #111827;
+	}
+
+	.suggest-loading {
+		padding: 14rpx 20rpx;
+		text-align: center;
+		font-size: 24rpx;
+		color: #6b7280;
+	}
 
 	.picker {
 		flex: 1;

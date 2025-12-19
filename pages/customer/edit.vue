@@ -252,11 +252,7 @@ export default {
           name: doc.name || '',
           short_name: doc.short_name || '',
           contact: doc.contact || '',
-<<<<<<< HEAD
-          phone: doc.phone || '',
-=======
           phone: doc.phone != null ? String(doc.phone) : '',
->>>>>>> 25fda4a (init project)
           address: doc.address || '',
           default_unit_price:
             doc.default_unit_price != null ? String(doc.default_unit_price) : '',
@@ -299,11 +295,7 @@ export default {
 
     // 电话规范化 + 严格校验
     normalizeAndValidatePhone() {
-<<<<<<< HEAD
-      const raw = (this.form.phone || '').trim()
-=======
       const raw = String(this.form.phone || '').trim()
->>>>>>> 25fda4a (init project)
       if (!raw) return '' // 可空
 
       const noSpace = raw.replace(/\s+/g, '')

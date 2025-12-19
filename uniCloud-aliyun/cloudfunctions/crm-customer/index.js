@@ -8,23 +8,15 @@ const usersCol = db.collection('crm_users')
 const customersCol = db.collection('crm_customers')
 const logsCol = db.collection('crm_operation_logs')
 
-<<<<<<< HEAD
-async function getUserByToken (token) {
-=======
-/* ================= 工具函数 ================= */
-
 async function getUserByToken(token) {
->>>>>>> 25fda4a (init project)
   if (!token) return null
   const res = await usersCol.where({ token }).limit(1).get()
   return res.data[0] || null
 }
 
-<<<<<<< HEAD
-async function recordLog (user, action, detail = {}) {
-=======
+/* ================= 工具函数 ================= */
+
 async function recordLog(user, action, detail = {}) {
->>>>>>> 25fda4a (init project)
   try {
     await logsCol.add({
       user_id: user?._id || null,
@@ -39,18 +31,12 @@ async function recordLog(user, action, detail = {}) {
   }
 }
 
-<<<<<<< HEAD
-function toNumber (v, def = null) {
-=======
 function toNumber(v, def = null) {
->>>>>>> 25fda4a (init project)
   if (v === '' || v === null || typeof v === 'undefined') return def
   const n = Number(v)
   return Number.isNaN(n) ? def : n
 }
 
-<<<<<<< HEAD
-=======
 function escapeRegExp(str = '') {
   return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -111,81 +97,12 @@ function buildActiveCond(is_active) {
   )
 }
 
-function buildKeywordCond(reg, kw) {
-  const conds = [
-    { name: reg },
-    { short_name: reg },
-    { contact: reg },
-    { phone: reg }
-  ]
-  const kwNumber = Number(kw)
-  if (!Number.isNaN(kwNumber)) conds.push({ phone: kwNumber })
-  return dbCmd.or(...conds)
-}
-
 /* ================= 主入口 ================= */
-
->>>>>>> 25fda4a (init project)
 exports.main = async (event, context) => {
   const { action, data = {}, token } = event
 
   // ===== 鉴权 =====
   const user = await getUserByToken(token)
-<<<<<<< HEAD
-  if (!user) {
-    return { code: 401, msg: '未登录或登录已过期' }
-  }
-
-  // =========================
-  // 1. 列表（管理页 + 其它页面公用）
-  // =========================
-  if (action === 'list') {
-    const {
-      keyword = '',
-      is_active,         // true / false / undefined
-      page = 1,
-      pageSize = 50
-    } = data
-
-    const where = {}
-
-    const kw = (keyword || '').trim()
-    if (kw) {
-      // 简单模糊：按名称 / 联系人 / 电话 搜索
-      where.$or = [
-        { name: new RegExp(kw) },
-        { short_name: new RegExp(kw) },
-        { contact: new RegExp(kw) },
-        { phone: new RegExp(kw) }
-      ]
-    }
-
-    if (typeof is_active === 'boolean') {
-      where.is_active = is_active
-    }
-
-    const skip = (page - 1) * pageSize
-
-    const query = customersCol.where(where).orderBy('created_at', 'desc')
-
-    const [listRes, countRes] = await Promise.all([
-      query.skip(skip).limit(pageSize).get(),
-      customersCol.where(where).count()
-    ])
-
-    return {
-      code: 0,
-      data: listRes.data || [],
-      total: countRes.total,
-      page,
-      pageSize
-    }
-  }
-
-  // =========================
-  // 2. 获取单条
-  // =========================
-=======
   if (!user) return { code: 401, msg: '未登录或登录已过期' }
 
   /* =====================================================
@@ -198,8 +115,16 @@ exports.main = async (event, context) => {
     let where = {}
 
     if (kw) {
-      const reg = new db.RegExp({ regexp: escapeRegExp(kw), options: 'i' })
-      where = buildKeywordCond(reg, kw)
+      const regCond = { $regex: escapeRegExp(kw), $options: 'i' }
+      const orConds = [
+        { name: regCond },
+        { short_name: regCond },
+        { contact: regCond },
+        { phone: regCond }
+      ]
+      const kwNumber = Number(kw)
+      if (!Number.isNaN(kwNumber)) orConds.push({ phone: kwNumber })
+      where = { $or: orConds }
     }
 
     const activeCond = buildActiveCond(is_active)
@@ -221,7 +146,6 @@ exports.main = async (event, context) => {
   /* =====================================================
    * 2. 获取单条
    * ===================================================== */
->>>>>>> 25fda4a (init project)
   if (action === 'get') {
     const { id } = data
     if (!id) return { code: 400, msg: '缺少 id' }
@@ -230,31 +154,6 @@ exports.main = async (event, context) => {
     return { code: 0, data: res.data[0] || null }
   }
 
-<<<<<<< HEAD
-  // =========================
-  // 3. 创建（管理页用）
-  // =========================
-  if (action === 'create') {
-    const {
-      name,
-      short_name,
-      contact,
-      phone,
-      address,
-      default_unit_price,
-      default_price_unit,
-      remark
-    } = data
-
-    const nm = (name || '').trim()
-    if (!nm) return { code: 400, msg: '客户名称不能为空' }
-
-    // 简单防重复
-    const existRes = await customersCol.where({ name: nm }).limit(1).get()
-    if (existRes.data && existRes.data.length > 0) {
-      return { code: 409, msg: '已存在同名客户，如需修改请编辑' }
-    }
-=======
   /* =====================================================
    * 3. 创建
    * ===================================================== */
@@ -269,20 +168,10 @@ exports.main = async (event, context) => {
 
     const existRes = await customersCol.where({ name: nm }).limit(1).get()
     if (existRes.data?.length) return { code: 409, msg: '已存在同名客户' }
->>>>>>> 25fda4a (init project)
 
     const now = Date.now()
     const doc = {
       name: nm,
-<<<<<<< HEAD
-      short_name: (short_name || '').trim(),
-      contact: (contact || '').trim(),
-      phone: (phone || '').trim(),
-      address: (address || '').trim(),
-      default_unit_price: toNumber(default_unit_price, null),
-      default_price_unit: default_price_unit || 'kg', // kg / bottle
-      remark: (remark || '').trim(),
-=======
       short_name: String(short_name || '').trim(),
       contact: String(contact || '').trim(),
       phone: String(phone || '').trim(),
@@ -290,7 +179,6 @@ exports.main = async (event, context) => {
       default_unit_price: toNumber(default_unit_price, null),
       default_price_unit: default_price_unit || 'kg',
       remark: String(remark || '').trim(),
->>>>>>> 25fda4a (init project)
       is_active: true,
       created_at: now,
       updated_at: now,
@@ -300,66 +188,19 @@ exports.main = async (event, context) => {
 
     const addRes = await customersCol.add(doc)
     await recordLog(user, 'customer_create', { id: addRes.id, name: nm })
-<<<<<<< HEAD
-    return { code: 0, msg: 'created', id: addRes.id }
-  }
 
-  // =========================
-  // 4. 更新
-  // =========================
-=======
     return { code: 0, id: addRes.id }
   }
 
   /* =====================================================
    * 4. 更新
    * ===================================================== */
->>>>>>> 25fda4a (init project)
   if (action === 'update') {
     const { id, ...rest } = data
     if (!id) return { code: 400, msg: '缺少 id' }
 
     const payload = {}
-<<<<<<< HEAD
 
-    if (typeof rest.name !== 'undefined') {
-      const nm = (rest.name || '').trim()
-      if (!nm) return { code: 400, msg: '客户名称不能为空' }
-      payload.name = nm
-    }
-
-    if (typeof rest.short_name !== 'undefined') {
-      payload.short_name = (rest.short_name || '').trim()
-    }
-
-    if (typeof rest.contact !== 'undefined') {
-      payload.contact = (rest.contact || '').trim()
-    }
-
-    if (typeof rest.phone !== 'undefined') {
-      payload.phone = (rest.phone || '').trim()
-    }
-
-    if (typeof rest.address !== 'undefined') {
-      payload.address = (rest.address || '').trim()
-    }
-
-    if (typeof rest.default_unit_price !== 'undefined') {
-      payload.default_unit_price = toNumber(rest.default_unit_price, null)
-    }
-
-    if (typeof rest.default_price_unit !== 'undefined') {
-      payload.default_price_unit = rest.default_price_unit || 'kg'
-    }
-
-    if (typeof rest.remark !== 'undefined') {
-      payload.remark = (rest.remark || '').trim()
-    }
-
-    if (typeof rest.is_active !== 'undefined') {
-      payload.is_active = !!rest.is_active
-    }
-=======
     if ('name' in rest) payload.name = String(rest.name || '').trim()
     if ('short_name' in rest) payload.short_name = String(rest.short_name || '').trim()
     if ('contact' in rest) payload.contact = String(rest.contact || '').trim()
@@ -369,21 +210,11 @@ exports.main = async (event, context) => {
     if ('is_active' in rest) payload.is_active = !!rest.is_active
     if ('default_price_unit' in rest) payload.default_price_unit = rest.default_price_unit || 'kg'
     if ('default_unit_price' in rest) payload.default_unit_price = toNumber(rest.default_unit_price, null)
->>>>>>> 25fda4a (init project)
 
     payload.updated_at = Date.now()
     payload.updated_by = user._id
 
     await customersCol.doc(id).update(payload)
-<<<<<<< HEAD
-    await recordLog(user, 'customer_update', { id, name: payload.name })
-    return { code: 0, msg: 'updated' }
-  }
-
-  // =========================
-  // 5. 删除
-  // =========================
-=======
     await recordLog(user, 'customer_update', { id })
     return { code: 0 }
   }
@@ -391,19 +222,12 @@ exports.main = async (event, context) => {
   /* =====================================================
    * 5. 删除
    * ===================================================== */
->>>>>>> 25fda4a (init project)
   if (action === 'remove') {
     const { id } = data
     if (!id) return { code: 400, msg: '缺少 id' }
 
     await customersCol.doc(id).remove()
     await recordLog(user, 'customer_remove', { id })
-<<<<<<< HEAD
-    return { code: 0, msg: 'removed' }
-  }
-
-  // 未知 action
-=======
     return { code: 0 }
   }
 
@@ -437,7 +261,7 @@ exports.main = async (event, context) => {
       .where(where)
       .orderBy('updated_at', 'desc')
       .limit(pageSize)
-      .field({ name: 1, short_name: 1, contact: 1, phone: 1, is_active: 1 })
+      .field({ name: 1, short_name: 1, contact: 1, phone: 1, is_active: 1, default_unit_price: 1, default_price_unit: 1 })
       .get()
 
     return {
@@ -603,6 +427,5 @@ exports.main = async (event, context) => {
     return { code: 0, dryRun, total: rows.length, created, updated, skipped, errors: errors.slice(0, 50) }
   }
 
->>>>>>> 25fda4a (init project)
   return { code: 400, msg: '未知 action' }
 }

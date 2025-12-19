@@ -40,15 +40,10 @@
                 />
               </view>
 
-              <!-- 联想结果 -->
-<<<<<<< HEAD
-              <view v-if="customerSuggests.length" class="suggest-panel">
-=======
               <view
                 v-if="customerSuggests.length || customerSuggestLoading"
                 class="suggest-panel"
               >
->>>>>>> 25fda4a (init project)
                 <view
                   v-for="c in customerSuggests"
                   :key="c._id"
@@ -57,12 +52,9 @@
                 >
                   {{ c.name }}
                 </view>
-<<<<<<< HEAD
-=======
                 <view v-if="customerSuggestLoading" class="suggest-loading">
                   查询中…
                 </view>
->>>>>>> 25fda4a (init project)
               </view>
             </view>
 
@@ -116,8 +108,6 @@
             </view>
           </view>
 
-<<<<<<< HEAD
-=======
           <view class="form-row">
             <view class="form-item col-quarter">
               <text class="label">车辆</text>
@@ -141,7 +131,7 @@
                   class="suggest-item"
                   @tap="onSelectVehicle(v)"
                 >
-                  {{ v.plate_no || v.name }}
+                  {{ v.plate_no || v.car_no || v.plateNo || v.name }}
                 </view>
                 <view v-if="vehicleSuggestLoading" class="suggest-loading">
                   查询中…
@@ -149,21 +139,38 @@
               </view>
             </view>
 
+            <!-- 瓶号 -->
             <view class="form-item col-quarter">
               <text class="label">瓶号</text>
               <view class="input-wrapper">
                 <input
                   class="input"
                   type="text"
-                  v-model.trim="filters.bottleNo"
-                  placeholder="输入瓶号筛选"
+                  v-model="bottleKeyword"
+                  placeholder="输入瓶号（模糊搜索）"
+                  @input="onBottleInput"
                   @confirm="onSearch"
                 />
               </view>
+
+              <view
+                v-if="bottleSuggests.length || bottleSuggestLoading"
+                class="suggest-panel"
+              >
+                <view
+                  v-for="b in bottleSuggests"
+                  :key="b"
+                  class="suggest-item"
+                  @tap="onSelectBottle(b)"
+                >
+                  {{ b }}
+                </view>
+                <view v-if="bottleSuggestLoading" class="suggest-loading">
+                  查询中…
+                </view>
+              </view>
             </view>
           </view>
-
->>>>>>> 25fda4a (init project)
           <view class="btn-row-inline">
             <button class="btn-soft" @click="resetFilter">重置</button>
             <button class="btn-primary" @click="onSearch">查询</button>
@@ -475,13 +482,9 @@ export default {
         customerId: '',
         customerName: '',
         dateFrom: '',
-<<<<<<< HEAD
-        dateTo: ''
-=======
         dateTo: '',
         vehicleId: '',
         bottleNo: ''
->>>>>>> 25fda4a (init project)
       },
 
       // 客户列表
@@ -489,8 +492,6 @@ export default {
       customerIndex: -1,
       customerKeyword: '',
       customerSuggests: [],
-<<<<<<< HEAD
-=======
       customerSuggestLoading: false,
       customerSuggestTimer: null,
 
@@ -500,7 +501,12 @@ export default {
       vehicleSuggests: [],
       vehicleSuggestLoading: false,
       vehicleSuggestTimer: null,
->>>>>>> 25fda4a (init project)
+
+      // 瓶号联想（本地）
+      bottleKeyword: '',
+      bottleSuggests: [],
+      bottleSuggestLoading: false,
+      bottleSuggestTimer: null,
 
       // 收款状态筛选
       paymentStatusOptions: ['全部', '已付', '挂账', '部分已付', '冲减'],
@@ -531,14 +537,6 @@ export default {
   },
 
   computed: {
-<<<<<<< HEAD
-    customerLabel() {
-      if (this.customerIndex < 0) return '全部客户'
-      const c = this.customers[this.customerIndex]
-      return c ? c.name : '全部客户'
-    },
-=======
->>>>>>> 25fda4a (init project)
     paymentStatusFilterLabel() {
       return this.paymentStatusOptions[this.paymentStatusIndex] || '全部'
     },
@@ -618,6 +616,7 @@ export default {
     }
 
     this.loadCustomers()
+    this.loadVehicles()
     this.fetchList(true)
   },
 
@@ -626,6 +625,26 @@ export default {
   },
 
   methods: {
+    normalizeKeyword(str) {
+      return String(str || '')
+        .replace(/[\s　]+/g, '')
+        .trim()
+    },
+    handle401(result) {
+      if (result && result.code === 401) {
+        uni.showModal({
+          title: '提示',
+          content: result.msg || '登录已过期，请重新登录',
+          showCancel: false,
+          success: () => {
+            uni.clearStorageSync()
+            uni.reLaunch({ url: '/pages/login/login' })
+          }
+        })
+        return true
+      }
+      return false
+    },
     formatDate(d) {
       const yyyy = d.getFullYear()
       const mm = String(d.getMonth() + 1).padStart(2, '0')
@@ -634,29 +653,21 @@ export default {
     },
 
     onCustomerInput(e) {
-      const kw = e.detail.value.trim()
+      const kw = this.normalizeKeyword(e.detail.value)
       this.customerKeyword = kw
-<<<<<<< HEAD
-
-      if (!kw) {
-        this.customerSuggests = []
-        this.filters.customerId = ''
-        this.filters.customerName = ''
-        return
-      }
-
-      this.customerSuggests = this.customers
-        .filter((c) => c && c.name && c.name.includes(kw))
-        .slice(0, 20)
-=======
       this.filters.customerId = ''
       this.filters.customerName = ''
 
       if (this.customerSuggestTimer) clearTimeout(this.customerSuggestTimer)
+      if (!kw) {
+        this.customerSuggests = []
+        this.customerSuggestLoading = false
+        return
+      }
+
       this.customerSuggestTimer = setTimeout(() => {
         this.fetchCustomerSuggests()
       }, 200)
->>>>>>> 25fda4a (init project)
     },
 
     onSelectCustomer(item) {
@@ -679,29 +690,14 @@ export default {
           data: {
             action: 'list',
             token,
-<<<<<<< HEAD
-            data: {}
-=======
             data: { pageSize: 500 }
->>>>>>> 25fda4a (init project)
           }
         })
 
         const result = res.result || {}
 
         // ⭐ 补 401：强制跳登录
-        if (result.code === 401) {
-          uni.showModal({
-            title: '提示',
-            content: result.msg || '登录已过期，请重新登录',
-            showCancel: false,
-            success: () => {
-              uni.clearStorageSync()
-              uni.reLaunch({ url: '/pages/login/login' })
-            }
-          })
-          return
-        }
+        if (this.handle401(result)) return
 
         if (result.code === 0) {
           this.customers = result.data || []
@@ -726,20 +722,32 @@ export default {
       }
     },
 
-<<<<<<< HEAD
-    onCustomerChange(e) {
-      const idx = Number(e.detail.value)
-      this.customerIndex = idx
-      const c = this.customers[idx]
-      if (c) {
-        this.filters.customerId = c._id
-        this.filters.customerName = c.name
-      } else {
-        this.filters.customerId = ''
-        this.filters.customerName = ''
-=======
+    async loadVehicles() {
+      try {
+        const token = getToken()
+        if (!token) return
+
+        const res = await uniCloud.callFunction({
+          name: 'crm-vehicle',
+          data: {
+            action: 'list',
+            token,
+            data: { pageSize: 500 }
+          }
+        })
+
+        const result = res.result || {}
+        if (this.handle401(result)) return
+        if (result.code === 0) {
+          this.vehicles = result.data || result.list || []
+        }
+      } catch (e) {
+        console.error('loadVehicles error', e)
+      }
+    },
+
     async fetchCustomerSuggests() {
-      const kw = (this.customerKeyword || '').trim()
+      const kw = this.normalizeKeyword(this.customerKeyword)
       if (!kw) {
         this.customerSuggests = []
         return
@@ -758,8 +766,11 @@ export default {
           }
         })
         const result = res.result || {}
+        if (this.handle401(result)) return
         if (result.code === 0) {
           this.customerSuggests = result.data || []
+        } else {
+          this.customerSuggests = []
         }
       } catch (error) {
         console.error('fetchCustomerSuggests error', error)
@@ -769,51 +780,164 @@ export default {
     },
 
     onVehicleInput(e) {
-      this.vehicleKeyword = e.detail.value.trim()
+      const kw = this.normalizeKeyword(e.detail.value)
+      this.vehicleKeyword = kw
       this.filters.vehicleId = ''
 
       if (this.vehicleSuggestTimer) clearTimeout(this.vehicleSuggestTimer)
+      if (!kw) {
+        this.vehicleSuggests = []
+        this.vehicleSuggestLoading = false
+        return
+      }
+
       this.vehicleSuggestTimer = setTimeout(() => {
         this.fetchVehicleSuggests()
       }, 200)
     },
 
     onSelectVehicle(vehicle) {
-      this.vehicleKeyword = vehicle.plate_no || vehicle.name || ''
+      this.vehicleKeyword = vehicle.plate_no || vehicle.car_no || vehicle.name || ''
       this.filters.vehicleId = vehicle._id || ''
       this.vehicleSuggests = []
     },
 
     async fetchVehicleSuggests() {
-      const kw = (this.vehicleKeyword || '').trim()
+      const kw = this.normalizeKeyword(this.vehicleKeyword)
       if (!kw) {
         this.vehicleSuggests = []
+        this.vehicleSuggestLoading = false
         return
       }
-      const token = getToken()
-      if (!token) return
       this.vehicleSuggestLoading = true
+      let gotRemote = false
       try {
-        const res = await uniCloud.callFunction({
-          name: 'crm-vehicle',
-          data: {
-            action: 'list',
-            token,
-            data: { keyword: kw, pageSize: 20 }
+        const token = getToken()
+        if (token) {
+          const res = await uniCloud.callFunction({
+            name: 'crm-vehicle',
+            data: {
+              action: 'list',
+              token,
+              data: { keyword: kw, pageSize: 20 }
+            }
+          })
+          const result = res.result || {}
+          if (this.handle401(result)) return
+          if (result.code === 0) {
+            this.vehicleSuggests = result.data || result.list || []
+            gotRemote = true
+          } else {
+            console.warn('[fetchVehicleSuggests] non-zero code', res, result)
+            this.vehicleSuggests = []
           }
-        })
-        const result = res.result || {}
-        if (result.code === 0) {
-          this.vehicleSuggests = result.data || result.list || []
         }
       } catch (error) {
         console.error('fetchVehicleSuggests error', error)
+        this.vehicleSuggests = []
       } finally {
+        if (!gotRemote) {
+          const list = (this.vehicles || []).filter((v) => {
+            if (!v) return false
+            const text =
+              this.normalizeKeyword(v.plate_no || v.car_no || v.plateNo || v.name)
+            return text.includes(kw)
+          })
+          this.vehicleSuggests = list.slice(0, 20)
+        }
         this.vehicleSuggestLoading = false
->>>>>>> 25fda4a (init project)
       }
     },
 
+    onBottleInput(e) {
+      const kw = this.normalizeKeyword(e.detail.value)
+      this.bottleKeyword = kw
+      this.filters.bottleNo = ''
+      if (this.bottleSuggestTimer) clearTimeout(this.bottleSuggestTimer)
+
+      if (!kw) {
+        this.bottleSuggests = []
+        this.bottleSuggestLoading = false
+        return
+      }
+
+      this.bottleSuggestTimer = setTimeout(() => {
+        this.fetchBottleSuggests()
+      }, 200)
+    },
+
+    onSelectBottle(bottleNo) {
+      const v = this.normalizeKeyword(bottleNo)
+      this.bottleKeyword = v
+      this.filters.bottleNo = v
+      this.bottleSuggests = []
+    },
+
+    async fetchBottleSuggests() {
+      const kw = this.normalizeKeyword(this.bottleKeyword)
+      if (!kw) {
+        this.bottleSuggests = []
+        this.bottleSuggestLoading = false
+        return
+      }
+
+      this.bottleSuggestLoading = true
+      let gotRemote = false
+      try {
+        const token = getToken()
+        if (token) {
+          const res = await uniCloud.callFunction({
+            name: 'crm-sale',
+            data: {
+              action: 'bottle_suggest',
+              token,
+              data: { keyword: kw, limit: 20 }
+            }
+          })
+          const result = res.result || {}
+          if (this.handle401(result)) return
+          if (result.code === 0 && Array.isArray(result.data)) {
+            this.bottleSuggests = result.data
+            gotRemote = true
+          } else if (result.code != null && result.code !== 0) {
+            console.warn('[fetchBottleSuggests] non-zero code', res, result)
+          }
+        }
+      } catch (error) {
+        console.error('fetchBottleSuggests error', error)
+      } finally {
+        if (!gotRemote) {
+          const set = new Set()
+          const trim = (s) => this.normalizeKeyword(s)
+          const pushList = (arr) => {
+            ;(arr || []).forEach((x) => {
+              const v = trim(x)
+              if (v) set.add(v)
+            })
+          }
+
+          this.records.forEach((r) => {
+            if (Array.isArray(r.out_items)) pushList(r.out_items.map((i) => i && i.bottle_no))
+            if (r.bottle_no) pushList([r.bottle_no])
+
+            if (Array.isArray(r.back_items)) pushList(r.back_items.map((i) => i && i.bottle_no))
+            if (r.return_bottle_no) pushList([r.return_bottle_no])
+
+            if (Array.isArray(r.deposit_items)) pushList(r.deposit_items.map((i) => i && i.bottle_no))
+            if (r.deposit_bottles_raw) {
+              pushList(r.deposit_bottles_raw.split(/[\/、,，\s]+/))
+            }
+          })
+
+          const matched = Array.from(set)
+            .filter((b) => b.includes(kw))
+            .slice(0, 20)
+
+          this.bottleSuggests = matched
+        }
+        this.bottleSuggestLoading = false
+      }
+    },
     onDateFromChange(e) {
       this.filters.dateFrom = e.detail.value
     },
@@ -832,13 +956,12 @@ export default {
       this.customerIndex = -1
       this.filters.customerId = ''
       this.filters.customerName = ''
-<<<<<<< HEAD
-=======
       this.vehicleKeyword = ''
       this.vehicleSuggests = []
       this.filters.vehicleId = ''
       this.filters.bottleNo = ''
->>>>>>> 25fda4a (init project)
+      this.bottleKeyword = ''
+      this.bottleSuggests = []
 
       const today = new Date()
       const end = this.formatDate(today)
@@ -882,12 +1005,9 @@ export default {
               customer_name: this.filters.customerName || undefined,
               date_from: this.filters.dateFrom || undefined,
               date_to: this.filters.dateTo || undefined,
-<<<<<<< HEAD
-=======
               vehicle_id: this.filters.vehicleId || undefined,
               vehicle_kw: this.vehicleKeyword || undefined,
               bottle_no: this.filters.bottleNo || undefined,
->>>>>>> 25fda4a (init project)
               page: this.page,
               pageSize: this.pageSize
             }
@@ -896,21 +1016,10 @@ export default {
 
         const result = res.result || {}
 
-        // ⭐ 补 401
-        if (result.code === 401) {
-          uni.showModal({
-            title: '提示',
-            content: result.msg || '登录已过期，请重新登录',
-            showCancel: false,
-            success: () => {
-              uni.clearStorageSync()
-              uni.reLaunch({ url: '/pages/login/login' })
-            }
-          })
-          return
-        }
+        if (this.handle401(result)) return
 
         if (result.code !== 0) {
+          console.warn('fetchList non-zero code', res, result)
           uni.showToast({
             title: result.msg || '加载失败',
             icon: 'none'
@@ -956,6 +1065,10 @@ export default {
             unpaid
           }
         })
+
+        if (this.filters.bottleNo) {
+          this.bottleKeyword = this.filters.bottleNo
+        }
       } catch (e) {
         console.error('fetchList error', e)
         uni.showToast({

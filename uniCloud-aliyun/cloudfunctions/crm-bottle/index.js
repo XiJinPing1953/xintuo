@@ -35,6 +35,10 @@ function toNumber(v, def = null) {
   return Number.isNaN(n) ? def : n
 }
 
+function escapeRegExp(str = '') {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // 统一状态枚举
 const BOTTLE_STATUS = {
   IN_STATION: 'in_station',
@@ -82,6 +86,7 @@ exports.main = async (event, context) => {
         number: 1,
         tare_weight: 1,
         status: 1,
+        kind: 1,
 
         last_customer_name: 1,
         last_out_date: 1,
@@ -121,7 +126,8 @@ exports.main = async (event, context) => {
     const {
       keyword = '',
       status,
-      limit = 10
+      limit = 10,
+      include_truck = false
     } = data
 
     const kw = (keyword || '').trim()
@@ -132,14 +138,16 @@ exports.main = async (event, context) => {
       }
     }
 
-    const where = {}
+    const kwUpper = kw.toUpperCase()
+    const wantTruck = include_truck === true || kwUpper.startsWith('TRUCK-')
 
-    // 单个数字 → 用包含搜索，方便输“2”找 201/202
-    if (/^\d$/.test(kw)) {
-      where.number = new RegExp(kw)
-    } else {
-      // 否则前缀匹配
-      where.number = buildNumberPrefixCondition(kw)
+    const kindCond = wantTruck
+      ? dbCmd.or(dbCmd.eq('bottle'), dbCmd.eq('truck'), dbCmd.exists(false))
+      : dbCmd.or(dbCmd.eq('bottle'), dbCmd.exists(false))
+
+    const where = {
+      number: new RegExp(escapeRegExp(kw), 'i'),
+      kind: kindCond
     }
 
     if (status) where.status = status
@@ -149,7 +157,8 @@ exports.main = async (event, context) => {
       .field({
         number: 1,
         tare_weight: 1,
-        status: 1
+        status: 1,
+        kind: 1
       })
       .orderBy('number', 'asc')
       .limit(limit)
@@ -159,6 +168,34 @@ exports.main = async (event, context) => {
       code: 0,
       data: res.data || []
     }
+  }
+
+  // =========================
+  // 1.5 模糊搜索（联想版） action: suggest
+  // =========================
+  if (action === 'suggest') {
+    const { keyword = '', limit = 20, include_truck = false } = data
+    const kw = (keyword || '').trim()
+    if (!kw) {
+      return { code: 0, data: [] }
+    }
+
+    const pageSize = Math.min(Math.max(Number(limit) || 20, 1), 100)
+    const regCond = { $regex: escapeRegExp(kw), $options: 'i' }
+    const wantTruck = include_truck === true || kw.toUpperCase().startsWith('TRUCK-')
+    const kindCond = wantTruck
+      ? dbCmd.or(dbCmd.eq('bottle'), dbCmd.eq('truck'), dbCmd.exists(false))
+      : dbCmd.or(dbCmd.eq('bottle'), dbCmd.exists(false))
+    const where = { number: regCond, kind: kindCond }
+
+    const res = await bottlesCol
+      .where(where)
+      .field({ number: 1, status: 1, customer_id: 1, kind: 1 })
+      .orderBy('number', 'asc')
+      .limit(pageSize)
+      .get()
+
+    return { code: 0, data: res.data || [] }
   }
 
   // =========================
@@ -188,7 +225,8 @@ exports.main = async (event, context) => {
     const {
       number,
       tare_weight,
-      status
+      status,
+      kind
     } = data
     const no = (number || '').trim()
     if (!no) {
@@ -201,19 +239,33 @@ exports.main = async (event, context) => {
     // 已存在？直接返回
     const exist = await bottlesCol.where({ number: no }).limit(1).get()
     if (exist.data && exist.data.length) {
+      const existed = exist.data[0]
+      const shouldTruck = no.toUpperCase().startsWith('TRUCK-')
+      if (shouldTruck && existed.kind !== 'truck') {
+        await bottlesCol.doc(existed._id).update({
+          kind: 'truck',
+          updated_at: Date.now(),
+          updated_by: user._id
+        })
+        existed.kind = 'truck'
+      }
       return {
         code: 0,
         msg: 'exists',
-        id: exist.data[0]._id,
-        data: exist.data[0]
+        id: existed._id,
+        data: existed
       }
     }
+
+    const isTruck = no.toUpperCase().startsWith('TRUCK-')
+    const finalKind = isTruck ? 'truck' : (kind || 'bottle')
 
     const now = Date.now()
     const doc = {
       number: no,
       tare_weight: toNumber(tare_weight, null),
       status: status || BOTTLE_STATUS.IN_STATION,
+      kind: finalKind,
       remark: '',
 
       // 旧字段（逐步废弃，但保留以兼容旧逻辑）
@@ -261,6 +313,52 @@ exports.main = async (event, context) => {
   }
 
   // =========================
+  // 3.1 一次性迁移：补全 kind
+  // =========================
+  if (action === 'migrateKind') {
+    if (user.role !== 'admin') {
+      return { code: 403, msg: '仅管理员可执行迁移' }
+    }
+
+    const now = Date.now()
+    // 1) 缺失 kind 的补齐为 bottle
+    const missingKindRes = await bottlesCol.where({ kind: dbCmd.exists(false) }).count()
+    let filled = 0
+    if (missingKindRes.total > 0) {
+      await bottlesCol
+        .where({ kind: dbCmd.exists(false) })
+        .update({ kind: 'bottle', updated_at: now, updated_by: user._id })
+      filled = missingKindRes.total
+    }
+
+    // 2) TRUCK-* 强制改为 truck
+    const truckCond = {
+      number: new RegExp('^TRUCK-', 'i'),
+      kind: dbCmd.neq('truck')
+    }
+    const truckFixRes = await bottlesCol.where(truckCond).count()
+    let truckFixed = 0
+    if (truckFixRes.total > 0) {
+      await bottlesCol
+        .where(truckCond)
+        .update({ kind: 'truck', updated_at: now, updated_by: user._id })
+      truckFixed = truckFixRes.total
+    }
+
+    await recordLog(user, 'bottle_migrate_kind', {
+      filled_missing: filled,
+      truck_fixed: truckFixed
+    })
+
+    return {
+      code: 0,
+      msg: 'ok',
+      filled_missing: filled,
+      truck_fixed: truckFixed
+    }
+  }
+
+  // =========================
   // 4. 手动创建（管理用） action: create
   // =========================
   if (action === 'create') {
@@ -268,6 +366,7 @@ exports.main = async (event, context) => {
       number,
       tare_weight,
       status,
+      kind,
       remark
     } = data
 
@@ -288,11 +387,15 @@ exports.main = async (event, context) => {
       }
     }
 
+    const isTruck = no.toUpperCase().startsWith('TRUCK-')
+    const finalKind = isTruck ? 'truck' : (kind || 'bottle')
+
     const now = Date.now()
     const doc = {
       number: no,
       tare_weight: toNumber(tare_weight, null),
       status: status || BOTTLE_STATUS.IN_STATION,
+      kind: finalKind,
       remark: remark || '',
 
       // 旧字段（逐步废弃）
@@ -366,6 +469,9 @@ exports.main = async (event, context) => {
     }
     if (rest.remark !== undefined) {
       payload.remark = rest.remark || ''
+    }
+    if (rest.kind !== undefined) {
+      payload.kind = rest.kind || 'bottle'
     }
 
     // 可更新的数字字段（旧 + 新）

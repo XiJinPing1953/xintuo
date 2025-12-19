@@ -41,6 +41,10 @@ function toNumber(v, def = null) {
 	return Number.isNaN(n) ? def : n
 }
 
+function escapeRegExp(str = '') {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // 统一用 YYYY-MM-DD 字符串
 function normalizeDateStr(tsOrStr) {
 	if (!tsOrStr) return ''
@@ -92,19 +96,25 @@ exports.main = async (event, context) => {
 			}
 		}
 
-		const tare = toNumber(tare_fill, null)
-		const gross = toNumber(gross_fill, null)
-		let net = toNumber(net_fill, null)
+			const tare = toNumber(tare_fill, null)
+			const gross = toNumber(gross_fill, null)
+			let net = toNumber(net_fill, null)
 
-		if (tare == null || gross == null) {
-			return {
-				code: 400,
-				msg: 'tare_fill 和 gross_fill 必填且为数字'
+			if (tare == null || gross == null) {
+				return {
+					code: 400,
+					msg: 'tare_fill 和 gross_fill 必填且为数字'
+				}
 			}
-		}
-		if (net == null) {
-			net = gross - tare
-		}
+			if (net == null) {
+				net = gross - tare
+			}
+			if (net < 0) {
+				return {
+					code: 400,
+					msg: 'net_fill 不能小于 0'
+				}
+			}
 
 		const now = Date.now()
 		const dateStr = normalizeDateStr(date || now)
@@ -129,6 +139,7 @@ exports.main = async (event, context) => {
                                                         // 如果本次灌装录了皮重，就拿来当铭牌皮重初始值
                                                         tare_weight: tare != null ? tare : null,
                                                         status: 'in_station',
+                                                        kind: no.toUpperCase().startsWith('TRUCK-') ? 'truck' : 'bottle',
                                                         remark: '由灌装记录自动建档'
                                                 }
                                         }
@@ -213,7 +224,8 @@ exports.main = async (event, context) => {
 				pageSize = 50,
 				start_date,
 				end_date,
-				bottle_no
+				bottle_no,
+				bottle_no_keyword
 		} = data || {}
 
 		const where = {}
@@ -232,6 +244,13 @@ exports.main = async (event, context) => {
 
 		if (bottle_no) {
 			where.bottle_no = (bottle_no || '').trim()
+		}
+
+		if (bottle_no_keyword) {
+			const kw = (bottle_no_keyword || '').trim()
+			if (kw) {
+				where.bottle_no = new RegExp(escapeRegExp(kw), 'i')
+			}
 		}
 
 		const skip = (page - 1) * pageSize
@@ -258,44 +277,55 @@ exports.main = async (event, context) => {
 	// =========================
 	// 3. 汇总：进站 / 灌装 / 销售 总量  action: summary
 	// =========================
-	if (action === 'summary') {
-		const {
-			start_date,
-			end_date,
-			date_from,
-			date_to
-		} = data || {}
+		if (action === 'summary') {
+			const {
+				start_date,
+				end_date,
+				date_from,
+				date_to,
+				bottle_no_keyword
+			} = data || {}
 
-		// 和 crm-gas-in 一样，兼容两种写法
-		const start = (start_date || date_from || '').trim()
-		const end = (end_date || date_to || '').trim()
+			// 和 crm-gas-in 一样，兼容两种写法
+			const start = (start_date || date_from || '').trim()
+			const end = (end_date || date_to || '').trim()
 
-		// 公共日期条件
-		const buildWhereByDate = () => {
-			const whereList = []
+			// 公共日期条件
+			const dateWhereList = []
 			if (start && end) {
-				whereList.push({
+				dateWhereList.push({
 					date: dbCmd.gte(start).and(dbCmd.lte(end))
 				})
 			} else if (start) {
-				whereList.push({
+				dateWhereList.push({
 					date: dbCmd.gte(start)
 				})
 			} else if (end) {
-				whereList.push({
+				dateWhereList.push({
 					date: dbCmd.lte(end)
 				})
 			}
-			return whereList.length ? dbCmd.and(...whereList) : {}
-		}
 
-		const where = buildWhereByDate()
+			const baseWhere = dateWhereList.length ? dbCmd.and(...dateWhereList) : {}
+
+			const fillWhereList = []
+			if (dateWhereList.length) {
+				fillWhereList.push(baseWhere)
+			}
+			if (bottle_no_keyword) {
+				const kw = (bottle_no_keyword || '').trim()
+				if (kw) {
+					fillWhereList.push({ bottle_no: new RegExp(escapeRegExp(kw), 'i') })
+				}
+			}
+
+			const fillWhere = fillWhereList.length ? dbCmd.and(...fillWhereList) : baseWhere
 
 		try {
 			// 1）灌装总量（站内灌装净重，kg）
 			const fillAgg = await fillingCol
 				.aggregate()
-				.match(where)
+				.match(fillWhere)
 				.group({
 					_id: null,
 					total_net: dbCmd.aggregate.sum('$net_fill'),
@@ -308,24 +338,9 @@ exports.main = async (event, context) => {
 			const fill_count = toNumber(fillRow.total_count, 0) || 0
 
 			// 2）进站总量（车进站净重，kg）
-<<<<<<< HEAD
 			const inboundAgg = await gasInCol
 				.aggregate()
-				.match(where)
-				.group({
-					_id: null,
-					total_net: dbCmd.aggregate.sum('$net_weight'),
-					total_count: dbCmd.aggregate.sum(1)
-				})
-				.end()
-
-			const inboundRow = (inboundAgg && inboundAgg.data && inboundAgg.data[0]) || {}
-			const inbound_total = toNumber(inboundRow.total_net, 0) || 0
-			const inbound_count = toNumber(inboundRow.total_count, 0) || 0
-=======
-                        const inboundAgg = await gasInCol
-                                .aggregate()
-                                .match(where)
+				.match(baseWhere)
                                 .group({
                                         _id: null,
                                         total_net: dbCmd.aggregate.sum('$net_weight'),
@@ -340,14 +355,13 @@ exports.main = async (event, context) => {
                         const inbound_count = toNumber(inboundRow.total_count, 0) || 0
                         const inbound_load_total = toNumber(inboundRow.total_load, 0) || 0
                         const inbound_loss_total = toNumber(inboundRow.total_loss, 0) || +(inbound_load_total - inbound_total)
->>>>>>> 25fda4a (init project)
 
 			// 3）销售总量（从站里真正出去的净重，kg）
 			//    这里直接用 crm_sale_records.total_net_weight：
 			//    total_net_weight = out_net_total - back_net_total
 			const saleAgg = await salesCol
 				.aggregate()
-				.match(where)
+				.match(baseWhere)
 				.group({
 					_id: null,
 					total_net: dbCmd.aggregate.sum('$total_net_weight'),
@@ -363,21 +377,13 @@ exports.main = async (event, context) => {
 				code: 0,
 				msg: 'ok',
 				data: {
-<<<<<<< HEAD
 					inbound_total, // 进站合计（kg）
 					inbound_count, // 进站记录数
+					inbound_load_total, // 进站装车合计（kg）
+					inbound_loss_total, // 装车→进站亏损（kg）
 					fill_total, // 灌装合计（kg）
 					fill_count, // 灌装记录数
 					sale_total, // 销售合计（kg）
-=======
-                                        inbound_total, // 进站合计（kg）
-                                        inbound_count, // 进站记录数
-                                        inbound_load_total, // 进站装车合计（kg）
-                                        inbound_loss_total, // 装车→进站亏损（kg）
-                                        fill_total, // 灌装合计（kg）
-                                        fill_count, // 灌装记录数
-                                        sale_total, // 销售合计（kg）
->>>>>>> 25fda4a (init project)
 					sale_count // 销售记录数
 				}
 			}
@@ -396,7 +402,8 @@ exports.main = async (event, context) => {
 	if (action === 'export') {
 		const {
 			start_date,
-			end_date
+			end_date,
+			bottle_no_keyword
 		} = data || {}
 
 		const where = {}
@@ -409,6 +416,13 @@ exports.main = async (event, context) => {
 			where.date = dbCmd.gte(start)
 		} else if (end) {
 			where.date = dbCmd.lte(end)
+		}
+
+		if (bottle_no_keyword) {
+			const kw = (bottle_no_keyword || '').trim()
+			if (kw) {
+				where.bottle_no = new RegExp(escapeRegExp(kw), 'i')
+			}
 		}
 
 		// 暂给一个上限，够你日常导出用；真要全库导出可以再拆批次
@@ -473,6 +487,7 @@ exports.main = async (event, context) => {
 				net_fill: netFill,
 				operator: row.operator || '',
 				remark: row.remark || '',
+				kind: b.kind || 'bottle',
 
 				// 瓶档字段（快照）
 				tare_weight: tareWeight,

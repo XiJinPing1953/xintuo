@@ -85,11 +85,16 @@
 								<!-- 行 1：瓶号 + 状态 pill -->
 								<view class="bottle-line">
 									<text class="bottle-no">瓶号：{{ item.number }}</text>
-									<view class="status-pill" :class="'status-' + (item.status || 'unknown')">
-										<text class="status-dot"></text>
-										<text class="status-text">
-											{{ statusTextMap[item.status] || '未维护' }}
-										</text>
+									<view style="display:flex;align-items:center;gap:10rpx;">
+										<view v-if="item.kind === 'truck'" class="tag-truck">
+											<text>整车</text>
+										</view>
+										<view class="status-pill" :class="'status-' + (item.status || 'unknown')">
+											<text class="status-dot"></text>
+											<text class="status-text">
+												{{ statusTextMap[item.status] || '未维护' }}
+											</text>
+										</view>
 									</view>
 								</view>
 
@@ -174,6 +179,22 @@
                                                                 />
                                                         </view>
                                                 </view>
+						<view class="form-item">
+							<text class="label">类型</text>
+							<picker
+								mode="selector"
+								:range="kindOptions"
+								range-key="label"
+								:value="kindPickerIndex"
+								@change="onKindChange"
+							>
+								<view class="input-wrapper">
+									<view class="picker">
+										<text>{{ kindOptions[kindPickerIndex].label }}</text>
+									</view>
+								</view>
+							</picker>
+						</view>
 
 						<view class="form-row">
 							<view class="form-item col-half">
@@ -290,6 +311,7 @@
 				editForm: {
 					id: '',
 					number: '',
+					kind: 'bottle',
 					tare_weight: '',
 					status: 'in_station',
 					remark: '',
@@ -303,6 +325,11 @@
 				},
 				saving: false,
 				editStatusIndex: 1, // 默认“在站”
+				kindOptions: [
+					{ value: 'bottle', label: '瓶装' },
+					{ value: 'truck', label: '整车(TRUCK)' }
+				],
+				kindPickerIndex: 0,
 
 				// 从其它页面跳转带入的瓶号
 				pendingBottleNumber: '',
@@ -343,8 +370,9 @@
 
                 methods: {
                         async callBottle(action, data = {}) {
-                                const result = await callCloud('crm-bottle', { action, data })
-                                if (result.code === 401) return null
+                                const token = getToken && getToken()
+                                const result = await callCloud('crm-bottle', { action, data, token })
+                                if (result && result.code === 401) return null
                                 return result
                         },
 
@@ -456,6 +484,7 @@
 				this.editForm = {
 					id: '',
 					number: '',
+					kind: 'bottle',
 					tare_weight: '',
 					status: 'in_station',
 					remark: '',
@@ -472,6 +501,10 @@
 					item => item.value === 'in_station'
 				)
 				if (this.editStatusIndex < 0) this.editStatusIndex = 1
+				this.kindPickerIndex = this.kindOptions.findIndex(
+					item => item.value === this.editForm.kind
+				)
+				if (this.kindPickerIndex < 0) this.kindPickerIndex = 0
 				this.showEditDialog = true
 			},
 
@@ -487,6 +520,7 @@
 				this.editForm = {
 					id: item._id,
 					number: item.number,
+					kind: item.kind || 'bottle',
 					tare_weight: item.tare_weight != null ? String(item.tare_weight) : '',
 					status: item.status || 'unknown',
 					remark: item.remark || '',
@@ -514,6 +548,8 @@
                                         s => s.value === this.editForm.status
                                 )
                                 this.editStatusIndex = idx >= 0 ? idx : 0
+				const kindIdx = this.kindOptions.findIndex(k => k.value === this.editForm.kind)
+				this.kindPickerIndex = kindIdx >= 0 ? kindIdx : 0
                                 this.showEditDialog = true
                         },
 
@@ -526,8 +562,21 @@
                                 const raw = e.detail.value || ''
                                 let cleaned = raw.replace(/\s+/g, '')
                                 cleaned = cleaned.toUpperCase().replace(/[^A-Z0-9-]/g, '')
-                                this.editForm.number = cleaned.slice(0, 20)
+                                cleaned = cleaned.slice(0, 20)
+                                this.editForm.number = cleaned
+				if (this.editMode === 'create') {
+					const isTruck = cleaned.startsWith('TRUCK-')
+					this.editForm.kind = isTruck ? 'truck' : 'bottle'
+					const idx = this.kindOptions.findIndex(k => k.value === this.editForm.kind)
+					this.kindPickerIndex = idx >= 0 ? idx : 0
+				}
                         },
+			onKindChange(e) {
+				const idx = Number(e.detail.value)
+				this.kindPickerIndex = idx
+				const chosen = this.kindOptions[idx]
+				this.editForm.kind = (chosen && chosen.value) || 'bottle'
+			},
 
                         normalizeBottleNumber() {
                                 const no = (this.editForm.number || '').trim().toUpperCase()
@@ -594,6 +643,7 @@
 
                                 const payload = {
                                         number: no,
+					kind: this.editForm.kind || (no.startsWith('TRUCK-') ? 'truck' : 'bottle'),
                                         tare_weight: tareWeight,
                                         status: this.editForm.status,
                                         remark: (this.editForm.remark || '').trim()
@@ -638,7 +688,7 @@
 				uni.navigateTo({
 					url: `/pages/bottle/detail?number=${encodeURIComponent(
 						item.number
-					)}`
+					)}${item._id ? `&id=${item._id}` : ''}`
 				})
 			},
 
@@ -1104,5 +1154,13 @@
 
 	.danger-text {
 		color: #dc2626;
+	}
+
+	.tag-truck {
+		padding: 4rpx 10rpx;
+		border-radius: 999rpx;
+		font-size: 20rpx;
+		background: rgba(99, 102, 241, 0.1);
+		color: #4338ca;
 	}
 </style>

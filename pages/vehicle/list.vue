@@ -401,9 +401,9 @@ export default {
           date: item[field],
           ts: this.dateToTimestamp(item[field]) || null
         }))
-        .filter((item) => item.date && item.ts)
+        .filter((item) => item.date && item.ts && item.ts >= todayTs)
 
-      if (!parsed.length) return { text: '未设置', badge: null, items: [] }
+      if (!parsed.length) return { text: '未设置或已过期', badge: null, items: [] }
 
       parsed.sort((a, b) => a.ts - b.ts)
       const soonList = parsed.filter((p) => p.ts >= todayTs && p.ts - todayTs <= 30 * 86400000)

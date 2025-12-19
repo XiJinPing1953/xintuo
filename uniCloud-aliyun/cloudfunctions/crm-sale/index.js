@@ -113,13 +113,10 @@ function toNumber(v, def = 0) {
   return Number.isNaN(n) ? def : n
 }
 
-<<<<<<< HEAD
-=======
 function escapeRegExp(str = '') {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return str.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')
 }
 
->>>>>>> 25fda4a (init project)
 exports.main = async (event, context) => {
   const { action, data = {}, token } = event
 
@@ -229,6 +226,64 @@ exports.main = async (event, context) => {
     const truck_gross = toNumber(truckGross)
     const truck_tare = toNumber(truckTare)
     const truck_net = toNumber(truckNet)
+
+    const buildTruckBottleNo = (plate) => {
+      const p = (plate || '').trim()
+      if (!p) return ''
+      return `TRUCK-${p}`
+    }
+
+    let truckBottleNo = ''
+    let truckBottleId = null
+
+    if (biz_mode === 'truck') {
+      if (!car_no) {
+        return { code: 400, msg: '整车模式需要选择车辆/车牌' }
+      }
+      truckBottleNo = buildTruckBottleNo(car_no)
+      // 确保出瓶里有 TRUCK 行
+      if (!out_items.some(r => r.bottle_no === truckBottleNo)) {
+        out_items.unshift({
+          bottle_no: truckBottleNo,
+          gross: toNumber(truckGross, null),
+          tare: toNumber(truckTare, null),
+          net: truck_net,
+          bottle_id: null
+        })
+      }
+      // 回瓶行若存在 TRUCK，稍后补 id；如果没有，保持为空（回站时再补）
+    }
+
+    // truck 模式：确保 TRUCK 瓶档存在
+    if (truckBottleNo) {
+      const truckExistRes = await bottles.where({ number: truckBottleNo }).limit(1).get()
+      let truckDoc = truckExistRes.data && truckExistRes.data[0]
+      if (!truckDoc) {
+        const nowTs = Date.now()
+        const addRes = await bottles.add({
+          number: truckBottleNo,
+          kind: 'truck',
+          status: 'in_station',
+          created_at: nowTs,
+          updated_at: nowTs,
+          created_by: user._id,
+          updated_by: user._id
+        })
+        truckBottleId = addRes.id
+      } else {
+        truckBottleId = truckDoc._id
+      }
+      out_items.forEach(r => {
+        if (r.bottle_no === truckBottleNo && !r.bottle_id) {
+          r.bottle_id = truckBottleId
+        }
+      })
+      back_items.forEach(r => {
+        if (r.bottle_no === truckBottleNo && !r.bottle_id) {
+          r.bottle_id = truckBottleId
+        }
+      })
+    }
 
     // ========= 强关联 bottle_id：对所有 bottle_id 为空的行做一次号 → _id 映射 =========
     const needLinkNosSet = new Set();
@@ -1253,23 +1308,12 @@ exports.main = async (event, context) => {
       date_to,
       delivery_man,
       vehicle_id,
-<<<<<<< HEAD
-=======
       vehicle_kw,
       bottle_no,
->>>>>>> 25fda4a (init project)
       page = 1,
       pageSize = 50
     } = data
 
-<<<<<<< HEAD
-    let where = {}
-
-    if (customer_id) where.customer_id = customer_id
-    if (customer_name) where.customer_name = customer_name
-    if (delivery_man) where.delivery_man = delivery_man
-    if (vehicle_id) where.vehicle_id = vehicle_id
-=======
     const whereList = []
 
     if (customer_id) {
@@ -1288,7 +1332,6 @@ exports.main = async (event, context) => {
       const reg = new RegExp(escapeRegExp(vehicleKeyword), 'i')
       whereList.push(dbCmd.or({ car_no: reg }, { vehicle_plate: reg }))
     }
->>>>>>> 25fda4a (init project)
 
     // 统一使用 dbCmd.gte / lte 写法
     if (date_from || date_to) {
@@ -1300,11 +1343,6 @@ exports.main = async (event, context) => {
       } else if (date_to) {
         cond = dbCmd.lte(date_to)
       }
-<<<<<<< HEAD
-      if (cond) where.date = cond
-    }
-
-=======
       if (cond) whereList.push({ date: cond })
     }
 
@@ -1323,7 +1361,6 @@ exports.main = async (event, context) => {
 
     const where = whereList.length ? dbCmd.and(...whereList) : {}
 
->>>>>>> 25fda4a (init project)
     const skip = (page - 1) * pageSize
 
     let query = sales.where(where).orderBy('date', 'desc')

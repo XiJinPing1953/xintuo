@@ -41,19 +41,11 @@
 						</view>
 					</view>
 
-<<<<<<< HEAD
 					<view class="filter-dates" v-if="filterPreset === 'custom'">
 						<picker mode="date" :value="dateRange.start" @change="onDateChange($event, 'start')">
 							<view class="date-input">
 								<text class="date-label">开始</text>
 								<text class="date-value">
-=======
-                                        <view class="filter-dates" v-if="filterPreset === 'custom'">
-                                                <picker mode="date" :value="dateRange.start" @change="onDateChange($event, 'start')">
-                                                        <view class="date-input">
-                                                                <text class="date-label">开始</text>
-                                                                <text class="date-value">
->>>>>>> 25fda4a (init project)
 									{{ dateRange.start || '选择日期' }}
 								</text>
 							</view>
@@ -65,36 +57,10 @@
 								<text class="date-value">
 									{{ dateRange.end || '选择日期' }}
 								</text>
-<<<<<<< HEAD
 							</view>
 						</picker>
 					</view>
 				</view>
-=======
-                                                        </view>
-                                                </picker>
-                                        </view>
-
-                                        <view class="bottle-filter">
-                                                <text class="bottle-filter-label">瓶号筛选</text>
-                                                <input
-                                                        class="bottle-filter-input"
-                                                        placeholder="输入瓶号，支持模糊匹配"
-                                                        v-model.trim="bottleFilter"
-                                                        @confirm="fetchList(true)"
-                                                />
-                                                <button class="btn-soft" size="mini" @click="fetchList(true)">筛选</button>
-                                                <button
-                                                        v-if="bottleFilter"
-                                                        class="btn-link"
-                                                        size="mini"
-                                                        @click="clearBottleFilter"
-                                                >
-                                                        清空
-                                                </button>
-                                        </view>
-                                </view>
->>>>>>> 25fda4a (init project)
 
 				<!-- 概览三个大数字 -->
 				<view class="summary-row" v-if="!loadingSummary">
@@ -137,19 +103,11 @@
 				</view>
 
 				<!-- 差值说明 -->
-<<<<<<< HEAD
 				<view class="diff-row" v-if="!loadingSummary">
 					<view class="diff-item">
 						<text class="diff-label">进站 → 灌装 差值</text>
 						<text class="diff-value" :class="{ danger: Math.abs(diffInboundFillRaw) > diffThreshold }">
 							{{ formatKg(diffInboundFillRaw) }} kg
-=======
-                                <view class="diff-row" v-if="!loadingSummary">
-                                        <view class="diff-item">
-                                                <text class="diff-label">进站 → 灌装 差值</text>
-                                                <text class="diff-value" :class="{ danger: Math.abs(diffInboundFillRaw) > diffThreshold }">
-                                                        {{ formatKg(diffInboundFillRaw) }} kg
->>>>>>> 25fda4a (init project)
 						</text>
 					</view>
 					<view class="diff-item">
@@ -160,40 +118,12 @@
 					</view>
 					<view class="diff-item">
 						<text class="diff-label">进站 → 销售 总差值</text>
-<<<<<<< HEAD
 						<text class="diff-value" :class="{ danger: Math.abs(diffInboundSaleRaw) > diffThreshold }">
 							{{ formatKg(diffInboundSaleRaw) }} kg
 						</text>
 					</view>
 				</view>
 			</view>
-=======
-                                                <text class="diff-value" :class="{ danger: Math.abs(diffInboundSaleRaw) > diffThreshold }">
-                                                        {{ formatKg(diffInboundSaleRaw) }} kg
-                                                </text>
-                                        </view>
-                                </view>
-
-                                <view class="loss-row" v-if="!loadingSummary">
-                                        <view class="loss-item">
-                                                <text class="loss-label">装车 → 进站 亏损</text>
-                                                <text class="loss-value">{{ formatKg(loadToInboundLossRaw) }} kg</text>
-                                        </view>
-                                        <view class="loss-item">
-                                                <text class="loss-label">进站 → 灌装 亏损</text>
-                                                <text class="loss-value">{{ formatKg(diffInboundFillRaw) }} kg</text>
-                                        </view>
-                                        <view class="loss-item">
-                                                <text class="loss-label">灌装 → 销售 亏损</text>
-                                                <text class="loss-value">{{ formatKg(diffFillSaleRaw) }} kg</text>
-                                        </view>
-                                        <view class="loss-item">
-                                                <text class="loss-label">月末库存（估算）</text>
-                                                <text class="loss-value">{{ formatKg(inventoryEstimateRaw) }} kg</text>
-                                        </view>
-                                </view>
-                        </view>
->>>>>>> 25fda4a (init project)
 
 			<!-- 中部：左表单 + 右列表 -->
 			<view class="layout-main">
@@ -291,16 +221,17 @@
 
 							<view class="form-row">
 								<text class="form-label">灌装净重 (kg)</text>
-								<view class="form-static">
-									<text :class="{
-                      'net-value': true,
-                      danger: netFillRaw <= 0
-                    }">
-										{{ netFillText }}
-									</text>
-									<text class="form-hint" v-if="netFillRaw <= 0">
-										净重≤0，请检查皮重/毛重是否录反
-									</text>
+								<view class="input-wrapper">
+									<input
+										class="form-input"
+										:disabled="!isAdmin"
+										type="number"
+										v-model="form.net_fill"
+										placeholder="可手动填写；留空则自动按毛重-皮重"
+									/>
+								</view>
+								<view class="form-hint" v-if="netFillRaw <= 0">
+									净重≤0，请检查皮重/毛重是否录反
 								</view>
 							</view>
 
@@ -356,6 +287,20 @@
 							<button class="btn-secondary btn-export" @click="exportFilling">
 								导出
 							</button>
+						</view>
+
+						<view class="filter-row">
+							<view class="filter-item">
+								<text class="label">瓶号筛选</text>
+								<view class="input-wrapper">
+									<input
+										class="input"
+										placeholder="输入瓶号或 TRUCK- 前缀"
+										v-model="bottleFilter"
+										@confirm="fetchList"
+									/>
+								</view>
+							</view>
 						</view>
 
 						<view v-if="loadingList" class="list-empty">
@@ -439,7 +384,6 @@
 
                                 // 时间范围
 				filterPreset: 'month',
-<<<<<<< HEAD
 				dateRange: {
 					start: '',
 					end: ''
@@ -452,37 +396,22 @@
 					fill_total: 0,
 					sale_total: 0
 				},
-=======
-                                dateRange: {
-                                        start: '',
-                                        end: ''
-                                },
-                                bottleFilter: '',
-
-                                // 概览数据
-                                loadingSummary: false,
-                                summary: {
-                                        inbound_total: 0,
-                                        inbound_load_total: 0,
-                                        inbound_loss_total: 0,
-                                        fill_total: 0,
-                                        sale_total: 0
-                                },
->>>>>>> 25fda4a (init project)
 
 				// 列表
 				loadingList: false,
 				fillingList: [],
+				bottleFilter: '',
 
-                                // 灌装表单（新增 / 编辑共用）
-                                form: {
-                                        bottle_no: '',
-                                        date: '',
-                                        tare_fill: '',
-                                        gross_fill: '',
-                                        operator: '',
-                                        remark: ''
-                                },
+				// 灌装表单（新增 / 编辑共用）
+				form: {
+					bottle_no: '',
+					date: '',
+					tare_fill: '',
+					gross_fill: '',
+					net_fill: '',
+					operator: '',
+					remark: ''
+				},
 				submitting: false,
 
 				// 差值阈值
@@ -513,6 +442,11 @@
 		computed: {
 			// 当前表单灌装净重
 			netFillRaw() {
+				const manual = this.form.net_fill
+				if (manual !== '' && manual != null) {
+					const n = Number(manual)
+					return isNaN(n) ? 0 : n
+				}
 				const tare = Number(this.form.tare_fill)
 				const gross = Number(this.form.gross_fill)
 				if (isNaN(tare) || isNaN(gross)) return 0
@@ -537,7 +471,6 @@
 				} = this.summary
 				return +(Number(fill_total || 0) - Number(sale_total || 0))
 			},
-<<<<<<< HEAD
 			diffInboundSaleRaw() {
 				const {
 					inbound_total,
@@ -545,26 +478,6 @@
 				} = this.summary
 				return +(Number(inbound_total || 0) - Number(sale_total || 0))
 			},
-=======
-                        diffInboundSaleRaw() {
-                                const {
-                                        inbound_total,
-                                        sale_total
-                                } = this.summary
-                                return +(Number(inbound_total || 0) - Number(sale_total || 0))
-                        },
-
-                        // 亏损 & 库存
-                        loadToInboundLossRaw() {
-                                const { inbound_loss_total, inbound_load_total, inbound_total } = this.summary
-                                if (inbound_loss_total != null) return +Number(inbound_loss_total || 0)
-                                return +(Number(inbound_load_total || 0) - Number(inbound_total || 0))
-                        },
-                        inventoryEstimateRaw() {
-                                const { inbound_total, sale_total } = this.summary
-                                return +(Number(inbound_total || 0) - Number(sale_total || 0))
-                        },
->>>>>>> 25fda4a (init project)
 
 			// 皮重预警
                         showTareWarning() {
@@ -767,8 +680,14 @@ this.isAdmin = isAdminRole(this.userInfo)
                                                 start_date: this.dateRange.start,
                                                 end_date: this.dateRange.end
                                         })
-                                        if (result && result.code === 0 && result.data) {
+                                        if (!result) return
+                                        if (result.code === 0 && result.data) {
                                                 this.summary = Object.assign({}, this.summary, result.data || {})
+                                        } else if (result.code !== 401) {
+                                                console.warn('fetchSummary non-zero code', result)
+                                                if (result.msg) {
+                                                        uni.showToast({ title: result.msg, icon: 'none' })
+                                                }
                                         }
                                 } catch (e) {
                                         console.error('fetchSummary exception:', e)
@@ -778,7 +697,6 @@ this.isAdmin = isAdminRole(this.userInfo)
                         },
 
                         async fetchList() {
-<<<<<<< HEAD
                                 if (!this.dateRange.start || !this.dateRange.end) return
 
                                 this.loadingList = true
@@ -787,46 +705,26 @@ this.isAdmin = isAdminRole(this.userInfo)
                                                 page: 1,
                                                 pageSize: 100,
                                                 start_date: this.dateRange.start,
-                                                end_date: this.dateRange.end
+                                                end_date: this.dateRange.end,
+                                                bottle_no_keyword: (this.bottleFilter || '').trim()
                                         })
-=======
-                                        if (!this.dateRange.start || !this.dateRange.end) return
-
-                                        this.loadingList = true
-                                        try {
-                                                const result = await this.callFilling('list', {
-                                                        page: 1,
-                                                        pageSize: 100,
-                                                        start_date: this.dateRange.start,
-                                                        end_date: this.dateRange.end,
-                                                        bottle_no: this.bottleFilter || undefined
-                                                })
->>>>>>> 25fda4a (init project)
+                                        if (!result) return
                                         if (result && result.code === 0 && Array.isArray(result.data)) {
                                                 this.fillingList = result.data
                                         } else if (result && result.code !== 401) {
                                                 console.warn('fetchList error:', result.msg)
+                                                if (result.msg) {
+                                                        uni.showToast({ title: result.msg, icon: 'none' })
+                                                }
                                                 this.fillingList = []
                                         }
                                 } catch (e) {
                                         console.error('fetchList exception:', e)
                                         this.fillingList = []
-<<<<<<< HEAD
 				} finally {
 					this.loadingList = false
 				}
 			},
-=======
-                                        } finally {
-                                                this.loadingList = false
-                                        }
-                        },
-
-                        clearBottleFilter() {
-                                this.bottleFilter = ''
-                                this.fetchList(true)
-                        },
->>>>>>> 25fda4a (init project)
 
 			// ---- 瓶号联想 / 档案 ----
                         async searchBottle(keyword) {
@@ -844,7 +742,8 @@ this.isAdmin = isAdminRole(this.userInfo)
                                         action: 'search',
                                         data: {
                                                 keyword: key,
-                                                limit: 20
+                                                limit: 20,
+                                                include_truck: key.toUpperCase().startsWith('TRUCK-')
                                         }
                                 })
                                         .then(res => {
@@ -956,17 +855,18 @@ this.isAdmin = isAdminRole(this.userInfo)
 				}
 				if (!item || !item._id) return
 
-                                this.isEditing = true
-                                this.editingId = item._id
+				this.isEditing = true
+				this.editingId = item._id
 
-                                this.form = {
-                                        bottle_no: item.bottle_no || '',
-                                        date: item.date || this.todayStr(),
-                                        tare_fill: item.tare_fill != null ? String(item.tare_fill) : '',
-                                        gross_fill: item.gross_fill != null ? String(item.gross_fill) : '',
-                                        operator: item.operator || '',
-                                        remark: item.remark || ''
-                                }
+				this.form = {
+					bottle_no: item.bottle_no || '',
+					date: item.date || this.todayStr(),
+					tare_fill: item.tare_fill != null ? String(item.tare_fill) : '',
+					gross_fill: item.gross_fill != null ? String(item.gross_fill) : '',
+					net_fill: item.net_fill != null ? String(item.net_fill) : '',
+					operator: item.operator || '',
+					remark: item.remark || ''
+				}
 
 				this.bottleSuggestions = []
 				this.bottleExists = true
@@ -1008,20 +908,21 @@ this.isAdmin = isAdminRole(this.userInfo)
 
 				const tare = Number(this.form.tare_fill)
 				const gross = Number(this.form.gross_fill)
-                                if (isNaN(tare) || isNaN(gross)) {
-                                        uni.showToast({
-                                                title: '请正确填写皮重和毛重',
-                                                icon: 'none'
-                                        })
-                                        return
-                                }
-                                if (gross <= tare) {
-                                        uni.showToast({
-                                                title: '毛重要大于皮重',
-                                                icon: 'none'
-                                        })
-                                        return
-                                }
+				const netManual = this.form.net_fill !== '' ? Number(this.form.net_fill) : null
+				if (isNaN(tare) || isNaN(gross)) {
+					uni.showToast({
+						title: '请正确填写皮重和毛重',
+						icon: 'none'
+					})
+					return
+				}
+				if (gross <= tare) {
+					uni.showToast({
+						title: '毛重要大于皮重',
+						icon: 'none'
+					})
+					return
+				}
 
                                 this.submitting = true
                                 const bottleNo = (this.form.bottle_no || '').trim()
@@ -1047,8 +948,8 @@ this.isAdmin = isAdminRole(this.userInfo)
                                                 }
                                         }
 
-                                        if (existsFlag) {
-                                                const result = await this.doCreateFilling(tare, gross)
+					if (existsFlag) {
+						const result = await this.doCreateFilling(tare, gross, netManual)
 						if (result.code === 0) {
 							uni.showToast({
 								title: '已保存',
@@ -1080,6 +981,7 @@ this.isAdmin = isAdminRole(this.userInfo)
                                                                                 data: {
                                                                                         number: bottleNo,
                                                                                         tare_weight: tare,
+                                                                                        kind: bottleNo.toUpperCase().startsWith('TRUCK-') ? 'truck' : 'bottle',
                                                                                         remark: '由灌装页面自动建档'
                                                                                 }
                                                                         })
@@ -1102,7 +1004,7 @@ this.isAdmin = isAdminRole(this.userInfo)
 									return
 								}
 
-                                                        const result = await this.doCreateFilling(tare, gross)
+                                                        const result = await this.doCreateFilling(tare, gross, netManual)
 								if (result.code === 0) {
 									uni.showToast({
 										title: '已建档并保存',
@@ -1186,7 +1088,8 @@ this.isAdmin = isAdminRole(this.userInfo)
 
                                 const fillDate = this.form.date || this.todayStr()
 
-                                const net = gross - tare
+                                const netManual = this.form.net_fill !== '' ? Number(this.form.net_fill) : null
+                                const net = netManual != null && !isNaN(netManual) ? netManual : (gross - tare)
                                 this.submitting = true
 
                                 try {
@@ -1225,8 +1128,8 @@ this.isAdmin = isAdminRole(this.userInfo)
 			},
 
 			// ---- 实际写库：创建灌装记录 ----
-                        async doCreateFilling(tare, gross) {
-                                const net = gross - tare
+                        async doCreateFilling(tare, gross, netManual) {
+                                const net = netManual != null && !isNaN(netManual) ? netManual : (gross - tare)
                                 const res = await this.callFilling('create', {
                                         bottle_no: this.form.bottle_no,
                                         date: this.form.date || this.todayStr(),
@@ -1272,6 +1175,7 @@ this.isAdmin = isAdminRole(this.userInfo)
                                         date: this.todayStr(),
                                         tare_fill: '',
                                         gross_fill: '',
+                                        net_fill: '',
                                         operator: (this.userInfo && this.userInfo.real_name) || (this.userInfo && this.userInfo.username) || '',
                                         remark: ''
                                 }
@@ -1553,42 +1457,12 @@ this.isAdmin = isAdminRole(this.userInfo)
                 background: #ffe4e6;
         }
 
-<<<<<<< HEAD
 	.filter-row {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 16rpx;
 	}
-=======
-        .filter-row {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 16rpx;
-        }
-
-        .bottle-filter {
-                display: flex;
-                align-items: center;
-                gap: 8rpx;
-        }
-
-        .bottle-filter-label {
-                font-size: 24rpx;
-                color: #4b5563;
-        }
-
-        .bottle-filter-input {
-                min-width: 240rpx;
-                height: 64rpx;
-                background: #ffffff;
-                border-radius: 12rpx;
-                border: 1rpx solid #e5e7eb;
-                padding: 0 16rpx;
-                font-size: 26rpx;
-        }
->>>>>>> 25fda4a (init project)
 
 	.filter-tabs {
 		display: flex;
@@ -1698,7 +1572,6 @@ this.isAdmin = isAdminRole(this.userInfo)
 		color: #9aa0ae;
 	}
 
-<<<<<<< HEAD
 	.diff-row {
 		margin-top: 14rpx;
 		padding-top: 12rpx;
@@ -1707,43 +1580,6 @@ this.isAdmin = isAdminRole(this.userInfo)
 		flex-wrap: wrap;
 		row-gap: 6rpx;
 	}
-=======
-        .diff-row {
-                margin-top: 14rpx;
-                padding-top: 12rpx;
-                border-top: 1rpx solid #e5e7eb;
-                display: flex;
-                flex-wrap: wrap;
-                row-gap: 6rpx;
-        }
-
-        .loss-row {
-                margin-top: 12rpx;
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                gap: 12rpx;
-        }
-
-        .loss-item {
-                background: #f8fafc;
-                border: 1rpx dashed #d9e2ec;
-                border-radius: 12rpx;
-                padding: 12rpx 14rpx;
-        }
-
-        .loss-label {
-                font-size: 22rpx;
-                color: #6b7280;
-                display: block;
-                margin-bottom: 6rpx;
-        }
-
-        .loss-value {
-                font-size: 30rpx;
-                font-weight: 700;
-                color: #0f172a;
-        }
->>>>>>> 25fda4a (init project)
 
 	.diff-item {
 		margin-right: 24rpx;
