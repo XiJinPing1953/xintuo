@@ -288,11 +288,31 @@ export default {
   },
 
   methods: {
-    async callWithAuth(name, payload) {
+    async callWithAuth(name, action, data = {}) {
       const token = getToken && getToken()
-      const result = await callCloud(name, { ...payload, token })
-      if (result && result.code === 401) return null
-      return result
+      if (!token) {
+        uni.showToast({ title: '未登录或登录已过期', icon: 'none' })
+        return null
+      }
+
+      try {
+        const result = await callCloud(name, { action, data, token })
+        console.log('[callWithAuth]', name, action, data, '=>', result)
+
+        if (!result) {
+          uni.showToast({ title: '请求异常（无返回）', icon: 'none' })
+          return null
+        }
+        if (result.code === 401) {
+          uni.showToast({ title: '未登录或登录已过期', icon: 'none' })
+          return null
+        }
+        return result
+      } catch (e) {
+        console.error('[callWithAuth error]', name, action, data, e)
+        uni.showToast({ title: '请求异常，请稍后重试', icon: 'none' })
+        return null
+      }
     },
 
     async fetchBottleDetail() {
@@ -308,16 +328,14 @@ export default {
       try {
         let result = null
         if (this.bottleId) {
-          result = await this.callWithAuth('crm-bottle', {
-            action: 'detail',
-            data: { id: this.bottleId }
+          result = await this.callWithAuth('crm-bottle', 'detail', {
+            id: this.bottleId
           })
         }
 
         if ((!result || result.code !== 0) && this.bottleNumber) {
-          result = await this.callWithAuth('crm-bottle', {
-            action: 'getByNumber',
-            data: { number: this.bottleNumber }
+          result = await this.callWithAuth('crm-bottle', 'getByNumber', {
+            number: this.bottleNumber
           })
         }
 
@@ -360,23 +378,18 @@ export default {
       this.recordsLoading = true
       try {
         // 1）销售记录（出瓶 / 回瓶 / 存瓶）
-        const saleReq = this.callWithAuth('crm-sale', {
-          action: 'listByBottle',
-          data: {
-            number: this.bottleNumber,
-            page: 1,
-            pageSize: 100
-          }
+        const saleReq = this.callWithAuth('crm-sale', 'listByBottle', {
+          number: this.bottleNumber,
+          page: 1,
+          pageSize: 100
         })
 
         // 2）灌装记录（只过滤瓶号，不限制日期）
-        const fillReq = this.callWithAuth('crm-filling', {
-          action: 'list',
-          data: {
-            page: 1,
-            pageSize: 100,
-            bottle_no: this.bottleNumber
-          }
+        const fillReq = this.callWithAuth('crm-filling', 'list', {
+          page: 1,
+          pageSize: 100,
+          bottle_no: this.bottleNumber,
+          bottle_no_keyword: this.bottleNumber
         })
 
         const [saleRes, fillRes] = await Promise.all([saleReq, fillReq])
