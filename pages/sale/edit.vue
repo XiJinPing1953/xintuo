@@ -1262,10 +1262,25 @@
 				return false
 			},
 
+			extractTruckKey(plate) {
+				const clean = String(plate || '')
+					.replace(/[\s\u3000]+/g, '')
+					.toUpperCase()
+					.trim()
+				if (!clean) return ''
+
+				if (/^[\u4e00-\u9fa5][A-Z]/.test(clean) && clean.length >= 7) {
+					const key = clean.slice(2)
+					return key.slice(-5)
+				}
+
+				return clean
+			},
+
 			buildTruckBottleNo(plate) {
-				const p = (plate || '').trim()
-				if (!p) return ''
-				return `TRUCK-${p}`
+				const key = this.extractTruckKey(plate)
+				if (!key) return ''
+				return `TRUCK-${key}`
 			},
 
 			isTruckBottle(no) {
@@ -2490,7 +2505,10 @@
 
 					const no = String(row.number).trim()
 					if (!no) return
-					if (this.isTruckBottle(no)) return
+
+					const isTruck = this.isTruckBottle(no)
+					const allowMissingTare = isTruck
+					const createStatus = isTruck ? 'in_station' : status
 
 					let tareNum = null
 					let hasTare = false
@@ -2502,11 +2520,17 @@
 						}
 					}
 
+					const needTare = withWeight && !allowMissingTare
+
+					const pushCreate = () => {
+						tasks.push(quickCreate(no, withWeight && !allowMissingTare ? tareNum : undefined, createStatus))
+					}
+
 					if (row.exists === false) {
-						if (withWeight && !hasTare) {
+						if (needTare && !hasTare) {
 							return
 						}
-						tasks.push(quickCreate(no, withWeight ? tareNum : undefined, status))
+						pushCreate()
 						return
 					}
 
@@ -2533,11 +2557,11 @@
 								return
 							}
 
-							if (withWeight && !hasTare) {
+							if (needTare && !hasTare) {
 								return
 							}
 
-							tasks.push(quickCreate(no, withWeight ? tareNum : undefined, status))
+							pushCreate()
 							row.exists = false
 						} catch (err) {
 							console.error('ensureNewBottlesCreated getByNumber error', err)
