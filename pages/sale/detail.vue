@@ -485,40 +485,55 @@
 			/* ===== 出瓶列表 ===== */
 			outList() {
 				if (!this.record) return []
-				if (this.isMulti) return this.record.out_items || []
+				if (this.isMulti) return this.normalizeBottleRows(this.record.out_items || [])
 				if (this.record.bottle_no) {
-					return [{
+					return this.normalizeBottleRows([{
 						bottle_no: this.record.bottle_no,
 						gross: this.record.gross_weight_out,
 						tare: this.record.tare_weight_out,
 						net: this.record.net_weight_out
-					}]
+					}])
 				}
-				return []
+				return this.normalizeBottleRows([])
 			},
 
 			/* ===== 回瓶列表 ===== */
 			backList() {
 				if (!this.record) return []
-				if (this.isMulti) return this.record.back_items || []
+				if (this.isMulti) return this.normalizeBottleRows(this.record.back_items || [])
 				if (this.record.return_bottle_no) {
-					return [{
+					return this.normalizeBottleRows([{
 						bottle_no: this.record.return_bottle_no,
 						gross: this.record.gross_weight_back,
 						tare: this.record.tare_weight_back,
 						net: this.record.net_weight_back
-					}]
+					}])
 				}
-				return []
+				return this.normalizeBottleRows([])
 			},
 
 			/* ===== 存瓶号 ===== */
 			depositNumbers() {
-				const normalized = this.normalizeDepositList(this.customerDeposits)
+				const normalizeAll = (list) => {
+					const set = new Set()
+					const normalized = this.normalizeDepositList(list)
+					const res = []
+					normalized.forEach(no => {
+						const truck = this.normalizeTruckBottleNo(no, this.record && this.record.car_no)
+						const finalNo = truck || String(no || '').trim()
+						if (!finalNo) return
+						if (set.has(finalNo)) return
+						set.add(finalNo)
+						res.push(finalNo)
+					})
+					return res
+				}
+
+				const normalized = normalizeAll(this.customerDeposits)
 				if (normalized.length) return normalized
 
 				if (!this.record || !this.record.deposit_bottles_raw) return []
-				return this.normalizeDepositList(this.record.deposit_bottles_raw)
+				return normalizeAll(this.record.deposit_bottles_raw)
 			},
 
 			/* ===== 单价文本 ===== */
@@ -797,6 +812,67 @@
 					return true
 				}
 				return false
+			},
+
+			hasValue(v) {
+				return v !== '' && v != null
+			},
+
+			extractTruckKey(plate) {
+				const clean = String(plate || '')
+					.replace(/[\s\u3000]+/g, '')
+					.toUpperCase()
+					.trim()
+				if (!clean) return ''
+
+				if (/^[\u4e00-\u9fa5][A-Z]/.test(clean) && clean.length >= 7) {
+					const key = clean.slice(2)
+					return key.slice(-5)
+				}
+
+				return clean
+			},
+
+			normalizeTruckBottleNo(no, fallbackPlate) {
+				const raw = String(no || '').trim()
+				if (!raw) return ''
+				const stripPrefix = raw.replace(/^TRUCK-?/i, '')
+				const key = this.extractTruckKey(stripPrefix || fallbackPlate || '')
+				if (!key) return ''
+				return `TRUCK-${key}`
+			},
+
+			normalizeBottleRows(rows) {
+				const res = []
+				const targetTruckNo = this.normalizeTruckBottleNo(null, this.record && this.record.car_no) || ''
+				let mergedTruck = null
+
+				(rows || []).forEach(item => {
+					const bottleNo = item && (item.bottle_no || item.bottleInput || item.number || '')
+					const normalizedTruck = this.normalizeTruckBottleNo(bottleNo, this.record && this.record.car_no)
+					const next = { ...item }
+
+					if (normalizedTruck) {
+						const finalNo = targetTruckNo || normalizedTruck
+						next.bottle_no = finalNo
+						if (mergedTruck) {
+							['gross', 'tare', 'net'].forEach(f => {
+								if (this.hasValue(next[f]) && !this.hasValue(mergedTruck[f])) {
+									mergedTruck[f] = next[f]
+								}
+							})
+							return
+						}
+						mergedTruck = next
+						res.push(next)
+						return
+					}
+
+					next.bottle_no = bottleNo
+					res.push(next)
+				})
+
+				return res
 			},
 
 			normalizeDepositList(list) {
