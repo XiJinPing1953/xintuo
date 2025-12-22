@@ -331,13 +331,13 @@
 							<view class="form-item col">
 								<text class="label">充装净重 (kg)</text>
 								<view class="input-wrapper">
-									<input class="input" type="number" placeholder="可从灌装记录带入" v-model="truckFillNet" @input="onTruckFillInput" @blur="recalcTruckLossB" />
+									<input class="input" type="number" placeholder="可从灌装记录带入" v-model="truckInfo.fill_net" @input="onTruckFillInput" @blur="recalcTruckLossB" />
 								</view>
 							</view>
 							<view class="form-item col">
 								<text class="label">损耗B（充装-回厂净重）</text>
 								<view class="input-wrapper">
-									<input class="input" type="number" placeholder="自动计算，可手动修改" v-model="truckLossB" @input="onTruckLossInput" />
+									<input class="input" type="number" placeholder="自动计算，可手动修改" v-model="truckInfo.loss_b" @input="onTruckLossInput" />
 								</view>
 							</view>
 						</view>
@@ -346,14 +346,14 @@
 							<view class="form-item col">
 								<text class="label">出厂净重 (kg)</text>
 								<view class="input-wrapper">
-									<input class="input" type="number" placeholder="TRUCK 出瓶净重" :value="truckOutRow ? truckOutRow.net : ''" @input="onTruckOutNetInput" />
+									<input class="input" type="number" placeholder="TRUCK 出瓶净重" v-model="truckInfo.out_net" @input="onTruckOutNetInput" />
 								</view>
 							</view>
 
 							<view class="form-item col">
 								<text class="label">回厂净重 (kg)</text>
 								<view class="input-wrapper">
-									<input class="input" type="number" placeholder="TRUCK 回瓶净重" :value="truckBackRow ? truckBackRow.net : ''" @input="onTruckBackNetInput" />
+									<input class="input" type="number" placeholder="TRUCK 回瓶净重" v-model="truckInfo.back_net" @input="onTruckBackNetInput" />
 								</view>
 							</view>
 						</view>
@@ -530,6 +530,15 @@
 					truck_loss_b: ''
 				},
 
+				truckInfo: {
+					bottle_no: '',
+					fill_net: '',
+					out_net: '',
+					back_net: '',
+					loss_a: '',
+					loss_b: ''
+				},
+
 				// Flow 理论换算系数（m³/kg）
 				defaultRatio: 1.37,
 				flowTheoryRatio: 1.37,
@@ -558,8 +567,6 @@
 
 				// truck 模式：用户是否手工改过净重
 				truckNetManual: false,
-				truckFillNet: '',
-				truckLossB: '',
 				truckLossBTouched: false,
 
 				customers: [],
@@ -671,15 +678,7 @@
 			},
 
 			truckBottleNo() {
-				return this.buildTruckBottleNo(this.header.car_no)
-			},
-
-			truckOutRow() {
-				return (this.outBottles || []).find(r => this.isTruckBottle(r.number)) || null
-			},
-
-			truckBackRow() {
-				return (this.backBottles || []).find(r => this.isTruckBottle(r.number)) || null
+				return this.truckInfo.bottle_no || this.buildTruckBottleNo(this.header.car_no)
 			},
 
 			normalizedCustomerDeposits() {
@@ -1130,12 +1129,20 @@
 			},
 			bizMode(v) {
 				if (v === 'truck') {
-					this.ensureTruckBottleRows(this.truckBottleNo)
+					this.outBottles = []
+					this.backBottles = []
+					this.depositBottles = []
+					this.truckInfo.out_net = this.truckInfo.out_net || ''
+					this.truckInfo.back_net = this.truckInfo.back_net || ''
+				} else {
+					if (!this.outBottles.length) this.outBottles = [this.createEmptyBottleRow()]
+					if (!this.backBottles.length) this.backBottles = [this.createEmptyBottleRow()]
+					if (!this.depositBottles.length) this.depositBottles = [this.createDepositRow()]
 				}
 			},
 			'header.car_no'(val) {
 				if (this.bizMode === 'truck') {
-					this.ensureTruckBottleRows(this.buildTruckBottleNo(val))
+					this.truckInfo.bottle_no = this.buildTruckBottleNo(val)
 				}
 			}
 		},
@@ -1305,91 +1312,17 @@
 				const truckNo = this.buildTruckBottleNo(plate)
 				if (!truckNo) return
 
-				this.ensureTruckBottleRows(truckNo)
+				this.truckInfo.bottle_no = truckNo
+				this.outBottles = []
+				this.backBottles = []
+				this.depositBottles = []
 				this.truckLossBTouched = false
-				this.truckLossB = ''
-				this.truckFillNet = ''
+				this.truckInfo.loss_b = ''
+				this.truckInfo.fill_net = ''
+				this.truckInfo.out_net = ''
+				this.truckInfo.back_net = ''
 				this.fetchTruckFillNet(payload.vehicle || { _id: this.header.vehicle_id })
 				this.recalcTruckLossB()
-			},
-
-			getOrCreateTruckRow(type) {
-				const arr = type === 'out' ? (this.outBottles || []) : (this.backBottles || [])
-				const found = arr.find(r => this.isTruckBottle(r.number))
-				if (found) return found
-				const row = {
-					number: this.truckBottleNo || '',
-					gross: '',
-					tare: '',
-					net: '',
-					bottleId: null,
-					exists: null,
-					suggestions: [],
-					fromSelect: false,
-					netManual: false
-				}
-				arr.unshift(row)
-				if (type === 'out') {
-					this.outBottles = arr
-				} else {
-					this.backBottles = arr
-				}
-				return row
-			},
-
-			ensureTruckBottleRows(truckNo) {
-				if (!truckNo) return
-
-				const target = this.normalizeTruckBottleNo(truckNo) || truckNo
-
-				const hasValue = (v) => v !== '' && v != null
-				const mergeTruckRow = (arr, withWeight) => {
-					const rows = Array.isArray(arr) ? arr.slice() : []
-					const base = withWeight ? {
-						number: target,
-						gross: '',
-						tare: '',
-						net: '',
-						bottleId: null,
-						exists: null,
-						suggestions: [],
-						fromSelect: false,
-						netManual: false
-					} : this.createDepositRow(target)
-
-					let merged = null
-
-					rows.forEach(r => {
-						if (!this.isTruckBottle(r.number)) return
-
-						const normalized = this.normalizeTruckBottleNo(r.number, target) || target
-						r.number = normalized
-
-						if (!merged) {
-							merged = { ...base }
-						}
-						merged.number = target
-
-						if (withWeight) {
-							if (hasValue(r.gross) && !hasValue(merged.gross)) merged.gross = r.gross
-							if (hasValue(r.tare) && !hasValue(merged.tare)) merged.tare = r.tare
-							if (hasValue(r.net) && !hasValue(merged.net)) merged.net = r.net
-							if (r.netManual) merged.netManual = true
-						}
-
-						if (hasValue(r.bottleId) && !hasValue(merged.bottleId)) merged.bottleId = r.bottleId
-						if (r.exists != null && merged.exists == null) merged.exists = r.exists
-						if (r.fromSelect) merged.fromSelect = true
-					})
-
-					const filtered = rows.filter(r => !this.isTruckBottle(r.number))
-					filtered.unshift(merged || base)
-					return filtered
-				}
-
-				this.outBottles = mergeTruckRow(this.outBottles, true)
-				this.backBottles = mergeTruckRow(this.backBottles, true)
-				this.depositBottles = mergeTruckRow(this.depositBottles, false)
 			},
 
 			async fetchTruckFillNet(vehicle) {
@@ -1413,7 +1346,7 @@
 					if (result.code === 0 && result.data) {
 						const net = result.data.net || result.data.fill_net || result.data.fillNet
 						if (net != null) {
-							this.truckFillNet = String(net)
+							this.truckInfo.fill_net = String(net)
 						}
 					}
 				} catch (err) {
@@ -1424,26 +1357,22 @@
 			},
 
 			getTruckBackNetNumber() {
-				const truckNo = this.buildTruckBottleNo(this.header.car_no)
-				if (!truckNo) return null
-				const target = (this.backBottles || []).find(r => this.isTruckBottle(r.number))
-				if (!target) return null
-				const n = Number(target.net)
+				const n = Number(this.truckInfo.back_net)
 				return Number.isFinite(n) ? n : null
 			},
 
 			recalcTruckLossB() {
 				if (this.bizMode !== 'truck') return
 				if (this.truckLossBTouched) return
-				const fill = Number(this.truckFillNet)
+				const fill = Number(this.truckInfo.fill_net)
 				const back = this.getTruckBackNetNumber()
 				if (!Number.isFinite(fill) || back == null) {
-					this.truckLossB = this.truckLossB || ''
-					this.header.truck_loss_b = this.truckLossB
+					this.truckInfo.loss_b = this.truckInfo.loss_b || ''
+					this.header.truck_loss_b = this.truckInfo.loss_b
 					return
 				}
-				this.truckLossB = (fill - back).toFixed(2)
-				this.header.truck_loss_b = this.truckLossB
+				this.truckInfo.loss_b = (fill - back).toFixed(2)
+				this.header.truck_loss_b = this.truckInfo.loss_b
 			},
 
 			normalizeDepositList(list) {
@@ -1542,8 +1471,17 @@
 						truck_loss_b: rec.truck_loss_b != null ? String(rec.truck_loss_b) : ''
 					}
 
-					this.truckFillNet = rec.truck_fill_net != null ? String(rec.truck_fill_net) : ''
-					this.truckLossB = rec.truck_loss_b != null ? String(rec.truck_loss_b) : ''
+					const truckInfo = rec.truck_info || {}
+					this.truckInfo = {
+						bottle_no: this.buildTruckBottleNo(rec.car_no || (truckInfo && truckInfo.plate_no)),
+						fill_net: truckInfo.fill_net != null ? String(truckInfo.fill_net) : (rec.truck_fill_net != null ? String(rec.truck_fill_net) : ''),
+						out_net: truckInfo.out_net != null ? String(truckInfo.out_net) : '',
+						back_net: truckInfo.back_net != null ? String(truckInfo.back_net) : '',
+						loss_a: truckInfo.loss_a != null ? String(truckInfo.loss_a) : '',
+						loss_b: truckInfo.loss_b != null ? String(truckInfo.loss_b) : (rec.truck_loss_b != null ? String(rec.truck_loss_b) : '')
+					}
+					this.header.truck_loss_b = this.truckInfo.loss_b
+
 					this.truckLossBTouched = false
 
 					if (typeof rec.flow_theory_ratio === 'number') {
@@ -1587,6 +1525,10 @@
 						}]
 					}
 
+					if (this.bizMode === 'bottle') {
+						this.outBottles = (this.outBottles || []).filter(r => !this.isTruckBottle(r.number))
+					}
+
 					// 回瓶
 					const backItems = rec.back_items || rec.backItems || []
 					if (Array.isArray(backItems) && backItems.length) {
@@ -1618,6 +1560,10 @@
 						}]
 					}
 
+					if (this.bizMode === 'bottle') {
+						this.backBottles = (this.backBottles || []).filter(r => !this.isTruckBottle(r.number))
+					}
+
 					// 回瓶处理结束的后面，加上👇这一段
 
 					// 存瓶：优先用新字段，其次兼容老的 deposit_bottles_raw
@@ -1643,13 +1589,20 @@
 						this.depositBottles = [this.createDepositRow()]
 					}
 
+					if (this.bizMode === 'bottle') {
+						this.depositBottles = (this.depositBottles || []).filter(r => !this.isTruckBottle(r.number))
+					}
+
 					if (this.bizMode === 'truck') {
 						const truckNo = this.buildTruckBottleNo(this.header.car_no)
 						if (truckNo) {
-							this.ensureTruckBottleRows(truckNo)
-							this.recalcTruckLossB()
+							this.truckInfo.bottle_no = truckNo
+							this.outBottles = []
+								this.backBottles = []
+								this.depositBottles = []
+								this.recalcTruckLossB()
+							}
 						}
-					}
 
 					// 流量模式
 					if ((rec.price_unit || rec.priceUnit) === 'm3') {
@@ -1860,8 +1813,14 @@
 				}
 
 				this.truckNetManual = false
-				this.truckFillNet = ''
-				this.truckLossB = ''
+				this.truckInfo = {
+					bottle_no: '',
+					fill_net: '',
+					out_net: '',
+					back_net: '',
+					loss_a: '',
+					loss_b: ''
+				}
 				this.truckLossBTouched = false
 				this.flowTheoryRatio = this.defaultRatio
 				this.flowSettle = {
@@ -1940,22 +1899,16 @@
 
 			onTruckLossInput(e) {
 				this.truckLossBTouched = true
-				this.truckLossB = e.detail.value
-				this.header.truck_loss_b = this.truckLossB
+				this.truckInfo.loss_b = e.detail.value
+				this.header.truck_loss_b = this.truckInfo.loss_b
 			},
 
 			onTruckOutNetInput(e) {
-				const row = this.getOrCreateTruckRow('out')
-				if (!row) return
-				row.net = e.detail.value
-				row.netManual = true
+				this.truckInfo.out_net = e.detail.value
 			},
 
 			onTruckBackNetInput(e) {
-				const row = this.getOrCreateTruckRow('back')
-				if (!row) return
-				row.net = e.detail.value
-				row.netManual = true
+				this.truckInfo.back_net = e.detail.value
 				this.truckLossBTouched = false
 				this.recalcTruckLossB()
 			},
@@ -2198,6 +2151,15 @@
 				const val = e.detail.value.trim()
 				const row = this.outBottles[index]
 
+				if (this.bizMode === 'bottle' && this.isTruckBottle(val)) {
+					row.number = ''
+					uni.showToast({
+						title: '瓶装模式不支持 TRUCK 瓶号',
+						icon: 'none'
+					})
+					return
+				}
+
 				row.number = val
 				row.fromSelect = false
 				row.exists = null
@@ -2312,6 +2274,15 @@
 			async onBackBottleInput(i, e) {
 				const val = e.detail.value.trim()
 				const row = this.backBottles[i]
+
+				if (this.bizMode === 'bottle' && this.isTruckBottle(val)) {
+					row.number = ''
+					uni.showToast({
+						title: '瓶装模式不支持 TRUCK 瓶号',
+						icon: 'none'
+					})
+					return
+				}
 
 				row.number = val
 				row.fromSelect = false
@@ -2441,6 +2412,15 @@
 				const val = e.detail.value.trim()
 				const row = this.depositBottles[i]
 
+				if (this.bizMode === 'bottle' && this.isTruckBottle(val)) {
+					row.number = ''
+					uni.showToast({
+						title: '瓶装模式不支持 TRUCK 瓶号',
+						icon: 'none'
+					})
+					return
+				}
+
 				row.number = val
 				row.fromSelect = false
 				row.exists = null
@@ -2514,9 +2494,51 @@
 				}
 			},
 
+			createEmptyBottleRow() {
+				return {
+					number: '',
+					gross: '',
+					tare: '',
+					net: '',
+					bottleId: null,
+					exists: null,
+					suggestions: [],
+					fromSelect: false,
+					netManual: false
+				}
+			},
+
 			async ensureNewBottlesCreated() {
 				const token = getToken()
+				if (!token) return false
 				const tasks = []
+
+				if (this.bizMode === 'truck') {
+					const truckNo = this.truckBottleNo
+					if (!truckNo) return true
+					tasks.push(uniCloud.callFunction({
+						name: 'crm-bottle',
+						data: {
+							action: 'quickCreate',
+							token,
+							data: {
+								number: truckNo,
+								status: 'in_station'
+							}
+						}
+					}))
+					try {
+						await Promise.all(tasks)
+						return true
+					} catch (e) {
+						console.error('ensureNewBottlesCreated truck quickCreate error', e)
+						uni.showToast({
+							title: '自动创建整车瓶失败',
+							icon: 'none'
+						})
+						return false
+					}
+				}
 
 				const quickCreate = (number, tare, status) => {
 					const data = {
@@ -2681,6 +2703,13 @@
 				if (this.bizMode === 'truck') {
 					const gross = Number(this.header.truck_gross)
 					const tare = Number(this.header.truck_tare)
+					if (!this.truckBottleNo) {
+						uni.showToast({
+							title: '请选择车辆生成整车瓶号',
+							icon: 'none'
+						})
+						return false
+					}
 					if (isNaN(gross) || isNaN(tare)) {
 						uni.showToast({
 							title: '请完善整车毛重/皮重',
@@ -2695,6 +2724,19 @@
 						})
 						return false
 					}
+					return true
+				}
+
+				const hasTruckBottle =
+					this.outBottles.some(r => this.isTruckBottle(r.number)) ||
+					this.backBottles.some(r => this.isTruckBottle(r.number)) ||
+					this.depositBottles.some(r => this.isTruckBottle(r.number))
+				if (hasTruckBottle) {
+					uni.showToast({
+						title: '瓶装模式不支持 TRUCK 瓶号',
+						icon: 'none'
+					})
+					return false
 				}
 
 				const hasBottle = this.outBottles.some(r => r.number && r.number.trim())
@@ -2772,8 +2814,8 @@
 					truckGross: this.header.truck_gross,
 					truckTare: this.header.truck_tare,
 					truckNet: this.header.truck_net,
-					truck_fill_net: this.truckFillNet,
-					truck_loss_b: this.truckLossB,
+					truck_fill_net: this.truckInfo.fill_net,
+					truck_loss_b: this.truckInfo.loss_b,
 
 					flow_theory_ratio: this.flowTheoryRatio
 				}
@@ -2824,6 +2866,20 @@
 					backRows,
 					depositRows,
 					source: 'manual-v2'
+				}
+
+				if (this.bizMode === 'truck') {
+					payload.truck_info = {
+						bottle_no: this.truckBottleNo,
+						fill_net: this.truckInfo.fill_net,
+						out_net: this.truckInfo.out_net,
+						back_net: this.truckInfo.back_net,
+						loss_a: this.header.truck_net && this.truckInfo.out_net ? (Number(this.truckInfo.fill_net) - Number(this.header.truck_net)).toFixed(2) : '',
+						loss_b: this.truckInfo.loss_b
+					}
+					payload.outRows = []
+					payload.backRows = []
+					payload.depositRows = []
 				}
 
 				const action = this.isEditing ? 'updateV2' : 'createV2'
