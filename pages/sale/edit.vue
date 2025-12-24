@@ -292,11 +292,34 @@
 								<text class="summary-value">{{ truckBottleNo }}</text>
 							</view>
 						</view>
+						<view class="summary-chip" v-if="truckBottleNo">
+							<view class="summary-line">
+								<text class="summary-label">整车瓶号：</text>
+								<text class="summary-value">{{ truckBottleNo }}</text>
+							</view>
+						</view>
+
+						<view class="form-row">
+							<view class="form-item col">
+								<text class="label">销售净重 (kg)</text>
+								<view class="input-wrapper">
+									<input class="input" type="number" placeholder="必填，结算依据" v-model="truckInfo.net_sale_kg" @input="onTruckNetSaleInput" />
+								</view>
+							</view>
+						</view>
+
+						<view class="summary-chip">
+							<view class="summary-line">
+								<text class="summary-label">应收金额：</text>
+								<text class="summary-value">{{ truckShouldReceive }} 元</text>
+							</view>
+						</view>
+
 						<view class="form-row">
 							<view class="form-item col">
 								<text class="label">毛重 (吨)</text>
 								<view class="input-wrapper">
-									<input class="input" type="number" placeholder="整车毛重（吨）" v-model="truckGrossTon"
+									<input class="input" type="number" placeholder="整车毛重（吨，可空）" v-model="truckInfo.gross_ton"
 										@blur="onTruckWeightBlur" />
 								</view>
 							</view>
@@ -304,7 +327,7 @@
 							<view class="form-item col">
 								<text class="label">皮重 (吨)</text>
 								<view class="input-wrapper">
-									<input class="input" type="number" placeholder="车辆皮重（吨）" v-model="truckTareTon"
+									<input class="input" type="number" placeholder="车辆皮重（吨，可空）" v-model="truckInfo.tare_ton"
 										@blur="onTruckWeightBlur" />
 								</view>
 							</view>
@@ -312,8 +335,8 @@
 							<view class="form-item col">
 								<text class="label">净重 (吨)</text>
 								<view class="input-wrapper">
-									<input class="input" type="number" placeholder="若不填按 毛重-皮重 自动算（吨）"
-										v-model="truckNetTon" />
+									<input class="input" type="number" placeholder="若不填按 毛重-皮重 自动算（吨，可空）"
+										v-model="truckInfo.net_ton" readonly />
 								</view>
 							</view>
 						</view>
@@ -322,7 +345,7 @@
 							<view class="summary-line">
 								<text class="summary-label">整车净重：</text>
 								<text class="summary-value">
-									{{ (truckNetNumber / 1000).toFixed(2) }} 吨
+									{{ (Number(truckInfo.net_ton) || 0).toFixed(2) }} 吨
 								</text>
 							</view>
 						</view>
@@ -335,26 +358,21 @@
 								</view>
 							</view>
 							<view class="form-item col">
-								<text class="label">损耗B（充装-回厂净重）</text>
+								<text class="label">回厂净重 (kg)</text>
 								<view class="input-wrapper">
-									<input class="input" type="number" placeholder="自动计算，可手动修改" v-model="truckInfo.loss_b" @input="onTruckLossInput" />
+									<input class="input" type="number" placeholder="可手填" v-model="truckInfo.back_net" @input="onTruckBackNetInput" @blur="recalcTruckLossB" />
 								</view>
 							</view>
 						</view>
 
-						<view class="form-row">
-							<view class="form-item col">
-								<text class="label">出厂净重 (kg)</text>
-								<view class="input-wrapper">
-									<input class="input" type="number" placeholder="TRUCK 出瓶净重" v-model="truckInfo.out_net" @input="onTruckOutNetInput" />
-								</view>
+						<view class="summary-chip">
+							<view class="summary-line">
+								<text class="summary-label">损耗A（充装-销售净重）：</text>
+								<text class="summary-value">{{ truckLossAText }}</text>
 							</view>
-
-							<view class="form-item col">
-								<text class="label">回厂净重 (kg)</text>
-								<view class="input-wrapper">
-									<input class="input" type="number" placeholder="TRUCK 回瓶净重" v-model="truckInfo.back_net" @input="onTruckBackNetInput" />
-								</view>
+							<view class="summary-line">
+								<text class="summary-label">损耗B（充装-回厂净重）：</text>
+								<text class="summary-value">{{ truckLossBText }}</text>
 							</view>
 						</view>
 					</view>
@@ -532,11 +550,15 @@
 
 				truckInfo: {
 					bottle_no: '',
+					net_sale_kg: '',
 					fill_net: '',
-					out_net: '',
 					back_net: '',
+					out_net: '',
 					loss_a: '',
-					loss_b: ''
+					loss_b: '',
+					gross_ton: '',
+					tare_ton: '',
+					net_ton: ''
 				},
 
 				// Flow 理论换算系数（m³/kg）
@@ -665,6 +687,11 @@
 			// 当前业务模式
 			bizMode() {
 				return this.header.biz_mode || this.header.business_mode || 'bottle'
+			},
+
+			truckNetSaleNumber() {
+				const n = Number(this.truckInfo.net_sale_kg)
+				return Number.isFinite(n) ? n : 0
 			},
 
 			// 是否显示瓶子相关卡片
@@ -1465,20 +1492,24 @@
 						remark: rec.remark || '',
 						biz_mode: rec.biz_mode || rec.bizMode || 'bottle',
 
-						truck_gross: rec.truck_gross != null ? String(rec.truck_gross) : '',
-						truck_tare: rec.truck_tare != null ? String(rec.truck_tare) : '',
-						truck_net: rec.truck_net != null ? String(rec.truck_net) : '',
-						truck_loss_b: rec.truck_loss_b != null ? String(rec.truck_loss_b) : ''
+						truck_gross: '',
+						truck_tare: '',
+						truck_net: '',
+						truck_loss_b: ''
 					}
 
 					const truckInfo = rec.truck_info || {}
 					this.truckInfo = {
 						bottle_no: this.buildTruckBottleNo(rec.car_no || (truckInfo && truckInfo.plate_no)),
-						fill_net: truckInfo.fill_net != null ? String(truckInfo.fill_net) : (rec.truck_fill_net != null ? String(rec.truck_fill_net) : ''),
-						out_net: truckInfo.out_net != null ? String(truckInfo.out_net) : '',
-						back_net: truckInfo.back_net != null ? String(truckInfo.back_net) : '',
-						loss_a: truckInfo.loss_a != null ? String(truckInfo.loss_a) : '',
-						loss_b: truckInfo.loss_b != null ? String(truckInfo.loss_b) : (rec.truck_loss_b != null ? String(rec.truck_loss_b) : '')
+						net_sale_kg: truckInfo.net_sale_kg != null ? String(truckInfo.net_sale_kg) : '',
+						fill_net: truckInfo.fill_net_kg != null ? String(truckInfo.fill_net_kg) : '',
+						back_net: truckInfo.back_net_kg != null ? String(truckInfo.back_net_kg) : '',
+						out_net: '',
+						loss_a: truckInfo.loss_a_kg != null ? String(truckInfo.loss_a_kg) : '',
+						loss_b: truckInfo.loss_b_kg != null ? String(truckInfo.loss_b_kg) : '',
+						gross_ton: truckInfo.gross_ton != null ? String(truckInfo.gross_ton) : '',
+						tare_ton: truckInfo.tare_ton != null ? String(truckInfo.tare_ton) : '',
+						net_ton: truckInfo.net_ton != null ? String(truckInfo.net_ton) : ''
 					}
 					this.header.truck_loss_b = this.truckInfo.loss_b
 
@@ -1495,73 +1526,74 @@
 					}
 
 					// 出瓶
-					const outItems = rec.out_items || rec.outItems || []
-					if (Array.isArray(outItems) && outItems.length) {
-						this.outBottles = outItems.map(it => ({
-							number: normalizeBottleNumber(it.bottle_no || it.bottleInput || ''),
-							gross: it.gross != null ? String(it.gross) : '',
-							tare: it.tare != null ? String(it.tare) : '',
-							net: it.net != null ? String(it.net) : '',
-							bottleId: it.bottle_id || it.bottleId || null,
-							exists: true,
-							suggestions: [],
-							fromSelect: false,
-							netManual: true
-						}))
-					} else if (rec.bottle_no) {
-						this.outBottles = [{
-							number: normalizeBottleNumber(rec.bottle_no),
-							gross: rec.gross_weight_out != null ?
-								String(rec.gross_weight_out) : '',
-							tare: rec.tare_weight_out != null ?
-								String(rec.tare_weight_out) : '',
-							net: rec.net_weight_out != null ?
-								String(rec.net_weight_out) : '',
-							bottleId: rec.bottle_id || null,
-							exists: true,
-							suggestions: [],
-							fromSelect: false,
-							netManual: true
-						}]
-					}
-
 					if (this.bizMode === 'bottle') {
+						const outItems = rec.out_items || rec.outItems || []
+						if (Array.isArray(outItems) && outItems.length) {
+							this.outBottles = outItems.map(it => ({
+								number: normalizeBottleNumber(it.bottle_no || it.bottleInput || ''),
+								gross: it.gross != null ? String(it.gross) : '',
+								tare: it.tare != null ? String(it.tare) : '',
+								net: it.net != null ? String(it.net) : '',
+								bottleId: it.bottle_id || it.bottleId || null,
+								exists: true,
+								suggestions: [],
+								fromSelect: false,
+								netManual: true
+							}))
+						} else if (rec.bottle_no) {
+							this.outBottles = [{
+								number: normalizeBottleNumber(rec.bottle_no),
+								gross: rec.gross_weight_out != null ?
+									String(rec.gross_weight_out) : '',
+								tare: rec.tare_weight_out != null ?
+									String(rec.tare_weight_out) : '',
+								net: rec.net_weight_out != null ?
+									String(rec.net_weight_out) : '',
+								bottleId: rec.bottle_id || null,
+								exists: true,
+								suggestions: [],
+								fromSelect: false,
+								netManual: true
+							}]
+						}
+
 						this.outBottles = (this.outBottles || []).filter(r => !this.isTruckBottle(r.number))
-					}
 
-					// 回瓶
-					const backItems = rec.back_items || rec.backItems || []
-					if (Array.isArray(backItems) && backItems.length) {
-						this.backBottles = backItems.map(it => ({
-							number: normalizeBottleNumber(it.bottle_no || it.bottleInput || ''),
-							gross: it.gross != null ? String(it.gross) : '',
-							tare: it.tare != null ? String(it.tare) : '',
-							net: it.net != null ? String(it.net) : '',
-							bottleId: it.bottle_id || it.bottleId || null,
-							exists: true,
-							suggestions: [],
-							fromSelect: false,
-							netManual: true
-						}))
-					} else if (rec.return_bottle_no) {
-						this.backBottles = [{
-							number: normalizeBottleNumber(rec.return_bottle_no),
-							gross: rec.gross_weight_back != null ?
-								String(rec.gross_weight_back) : '',
-							tare: rec.tare_weight_back != null ?
-								String(rec.tare_weight_back) : '',
-							net: rec.net_weight_back != null ?
-								String(rec.net_weight_back) : '',
-							bottleId: rec.return_bottle_id || null,
-							exists: true,
-							suggestions: [],
-							fromSelect: false,
-							netManual: true
-						}]
-					}
+						// 回瓶
+						const backItems = rec.back_items || rec.backItems || []
+						if (Array.isArray(backItems) && backItems.length) {
+							this.backBottles = backItems.map(it => ({
+								number: normalizeBottleNumber(it.bottle_no || it.bottleInput || ''),
+								gross: it.gross != null ? String(it.gross) : '',
+								tare: it.tare != null ? String(it.tare) : '',
+								net: it.net != null ? String(it.net) : '',
+								bottleId: it.bottle_id || it.bottleId || null,
+								exists: true,
+								suggestions: [],
+								fromSelect: false,
+								netManual: true
+							}))
+						} else if (rec.return_bottle_no) {
+							this.backBottles = [{
+								number: normalizeBottleNumber(rec.return_bottle_no),
+								gross: rec.gross_weight_back != null ?
+									String(rec.gross_weight_back) : '',
+								tare: rec.tare_weight_back != null ?
+									String(rec.tare_weight_back) : '',
+								net: rec.net_weight_back != null ?
+									String(rec.net_weight_back) : '',
+								bottleId: rec.return_bottle_id || null,
+								exists: true,
+								suggestions: [],
+								fromSelect: false,
+								netManual: true
+							}]
+						}
 
-					if (this.bizMode === 'bottle') {
 						this.backBottles = (this.backBottles || []).filter(r => !this.isTruckBottle(r.number))
+					} else {
+						this.outBottles = []
+						this.backBottles = []
 					}
 
 					// 回瓶处理结束的后面，加上👇这一段
@@ -1574,35 +1606,30 @@
 						rec.depositItems ||
 						null
 
-					if (Array.isArray(depositRows) && depositRows.length) {
-						// 新结构：[{ bottleInput / bottle_no / number, bottleId }]
-						const normalized = this.normalizeDepositList(depositRows)
-						this.depositBottles = normalized.length ?
-							normalized.map(no => this.createDepositRow(normalizeBottleNumber(no))) : [this.createDepositRow()]
-					} else if (rec.deposit_bottles_raw) {
-						// 老结构：字符串或数组，需要拆分
-						const normalized = this.normalizeDepositList(rec.deposit_bottles_raw)
-						this.depositBottles = normalized.length ?
-							normalized.map(no => this.createDepositRow(normalizeBottleNumber(no))) : [this.createDepositRow()]
-					} else {
-						// 没有历史存瓶记录，就给一行空输入
-						this.depositBottles = [this.createDepositRow()]
-					}
-
 					if (this.bizMode === 'bottle') {
+						if (Array.isArray(depositRows) && depositRows.length) {
+							// 新结构：[{ bottleInput / bottle_no / number, bottleId }]
+							const normalized = this.normalizeDepositList(depositRows)
+							this.depositBottles = normalized.length ?
+								normalized.map(no => this.createDepositRow(normalizeBottleNumber(no))) : [this.createDepositRow()]
+						} else if (rec.deposit_bottles_raw) {
+							// 老结构：字符串或数组，需要拆分
+							const normalized = this.normalizeDepositList(rec.deposit_bottles_raw)
+							this.depositBottles = normalized.length ?
+								normalized.map(no => this.createDepositRow(normalizeBottleNumber(no))) : [this.createDepositRow()]
+						} else {
+							// 没有历史存瓶记录，就给一行空输入
+							this.depositBottles = [this.createDepositRow()]
+						}
 						this.depositBottles = (this.depositBottles || []).filter(r => !this.isTruckBottle(r.number))
-					}
-
-					if (this.bizMode === 'truck') {
+					} else {
+						this.depositBottles = []
 						const truckNo = this.buildTruckBottleNo(this.header.car_no)
 						if (truckNo) {
 							this.truckInfo.bottle_no = truckNo
-							this.outBottles = []
-								this.backBottles = []
-								this.depositBottles = []
-								this.recalcTruckLossB()
-							}
+							this.recalcTruckLossB()
 						}
+					}
 
 					// 流量模式
 					if ((rec.price_unit || rec.priceUnit) === 'm3') {
@@ -1888,7 +1915,12 @@
 			},
 
 			onTruckWeightBlur() {
-				this.updateTruckNet()
+				if (this.truckLossBTouched) return
+				const g = Number(this.truckInfo.gross_ton)
+				const t = Number(this.truckInfo.tare_ton)
+				if (Number.isFinite(g) && Number.isFinite(t)) {
+					this.truckInfo.net_ton = (g - t).toFixed(2)
+				}
 			},
 
 			onTruckFillInput() {
@@ -1897,14 +1929,8 @@
 				}
 			},
 
-			onTruckLossInput(e) {
-				this.truckLossBTouched = true
-				this.truckInfo.loss_b = e.detail.value
-				this.header.truck_loss_b = this.truckInfo.loss_b
-			},
-
-			onTruckOutNetInput(e) {
-				this.truckInfo.out_net = e.detail.value
+			onTruckNetSaleInput() {
+				this.recalcTruckLossB()
 			},
 
 			onTruckBackNetInput(e) {
