@@ -115,12 +115,57 @@
 							<text v-else class="info-value info-muted">暂无存瓶记录</text>
 						</view>
 					</view>
-				</view>
+			</view>
 
-				<!-- 出瓶明细 -->
-				<view class="card">
-					<view class="card-header">
-						<text class="card-title">出瓶明细</text>
+			<!-- 整车信息（truck 模式） -->
+			<view class="card" v-if="isTruckMode">
+				<view class="card-header">
+					<text class="card-title">整车（大瓶）信息</text>
+				</view>
+				<view class="card-body">
+					<view class="info-grid">
+						<view class="info-cell">
+							<text class="info-label">整车瓶号</text>
+							<text class="info-value">{{ truckDetail.bottle_no || '—' }}</text>
+						</view>
+						<view class="info-cell">
+							<text class="info-label">充装净重 (kg)</text>
+							<text class="info-value">{{ formatNum(truckDetail.fill_net) }}</text>
+						</view>
+						<view class="info-cell">
+							<text class="info-label">出厂净重 (kg)</text>
+							<text class="info-value">{{ formatNum(truckDetail.out_net) }}</text>
+						</view>
+						<view class="info-cell">
+							<text class="info-label">回厂净重 (kg)</text>
+							<text class="info-value">{{ formatNum(truckDetail.back_net) }}</text>
+						</view>
+					</view>
+					<view class="info-grid">
+						<view class="info-cell">
+							<text class="info-label">整车毛重 (kg)</text>
+							<text class="info-value">{{ formatNum(truckDetail.gross) }}</text>
+						</view>
+						<view class="info-cell">
+							<text class="info-label">整车皮重 (kg)</text>
+							<text class="info-value">{{ formatNum(truckDetail.tare) }}</text>
+						</view>
+						<view class="info-cell">
+							<text class="info-label">整车净重 (kg)</text>
+							<text class="info-value">{{ formatNum(truckDetail.net) }}</text>
+						</view>
+						<view class="info-cell">
+							<text class="info-label">损耗B</text>
+							<text class="info-value">{{ formatNum(truckDetail.loss_b) }}</text>
+						</view>
+					</view>
+				</view>
+			</view>
+
+			<!-- 出瓶明细 -->
+			<view class="card" v-if="!isTruckMode">
+				<view class="card-header">
+					<text class="card-title">出瓶明细</text>
 						<text class="card-sub">
 							本次送出的瓶子
 							<text v-if="outList.length">（共 {{ outList.length }} 只）</text>
@@ -153,7 +198,7 @@
 				</view>
 
 				<!-- 回瓶明细 -->
-				<view class="card">
+			<view class="card" v-if="!isTruckMode">
 					<view class="card-header">
 						<text class="card-title">回收瓶明细</text>
 						<text class="card-sub">
@@ -188,7 +233,7 @@
 				</view>
 
 				<!-- 存瓶 -->
-				<view class="card">
+			<view class="card" v-if="!isTruckMode">
 					<view class="card-header">
 						<text class="card-title">存瓶号</text>
 						<text class="card-sub">当前留在客户处的瓶子<text v-if="depositNumbers.length">（共
@@ -209,7 +254,7 @@
 				</view>
 
 				<!-- 结算汇总：根据单价单位动态展示 -->
-				<view class="card">
+				<view class="card" v-if="!isTruckMode">
 					<view class="card-header">
 						<text class="card-title">
 							结算汇总（{{ isFlowPrice ? '流量结算' : '重量结算' }}）
@@ -419,6 +464,12 @@
 				)
 			},
 
+			isTruckMode() {
+				if (!this.record) return false
+				const mode = this.record.biz_mode || this.record.bizMode
+				return mode === 'truck'
+			},
+
 			/* 是否流量结算 */
 			isFlowPrice() {
 				if (!this.record) return false
@@ -482,43 +533,80 @@
 				return `${this.flowVolumeMeterText} × ${this.unitPriceFlowText} = ${this.flowShouldReceiveText} 元`
 			},
 
+			truckDetail() {
+				if (!this.record) return {}
+				const info = this.record.truck_info || {}
+				const bottleNo = this.normalizeTruckBottleNo(
+					info.bottle_no || info.bottleNo || this.record.truck_bottle_no || '',
+					this.record.car_no
+				)
+				return {
+					bottle_no: bottleNo,
+					fill_net: info.fill_net ?? this.record.truck_fill_net,
+					out_net: info.out_net ?? this.record.truck_out_net,
+					back_net: info.back_net ?? this.record.truck_back_net,
+					loss_b: info.loss_b ?? this.record.truck_loss_b,
+					gross: info.gross ?? this.record.truck_gross,
+					tare: info.tare ?? this.record.truck_tare,
+					net: info.net ?? this.record.truck_net
+				}
+			},
+
 			/* ===== 出瓶列表 ===== */
 			outList() {
 				if (!this.record) return []
-				if (this.isMulti) return this.record.out_items || []
+				if (this.isTruckMode) return []
+				if (this.isMulti) return this.normalizeBottleRows(this.record.out_items || [])
 				if (this.record.bottle_no) {
-					return [{
+					return this.normalizeBottleRows([{
 						bottle_no: this.record.bottle_no,
 						gross: this.record.gross_weight_out,
 						tare: this.record.tare_weight_out,
 						net: this.record.net_weight_out
-					}]
+					}])
 				}
-				return []
+				return this.normalizeBottleRows([])
 			},
 
 			/* ===== 回瓶列表 ===== */
 			backList() {
 				if (!this.record) return []
-				if (this.isMulti) return this.record.back_items || []
+				if (this.isTruckMode) return []
+				if (this.isMulti) return this.normalizeBottleRows(this.record.back_items || [])
 				if (this.record.return_bottle_no) {
-					return [{
+					return this.normalizeBottleRows([{
 						bottle_no: this.record.return_bottle_no,
 						gross: this.record.gross_weight_back,
 						tare: this.record.tare_weight_back,
 						net: this.record.net_weight_back
-					}]
+					}])
 				}
-				return []
+				return this.normalizeBottleRows([])
 			},
 
 			/* ===== 存瓶号 ===== */
 			depositNumbers() {
-				const normalized = this.normalizeDepositList(this.customerDeposits)
+				if (this.isTruckMode) return []
+				const normalizeAll = (list) => {
+					const set = new Set()
+					const normalized = this.normalizeDepositList(list)
+					const res = []
+					normalized.forEach(no => {
+						const truck = this.normalizeTruckBottleNo(no, this.record && this.record.car_no)
+						const finalNo = truck || String(no || '').trim()
+						if (!finalNo) return
+						if (set.has(finalNo)) return
+						set.add(finalNo)
+						res.push(finalNo)
+					})
+					return res
+				}
+
+				const normalized = normalizeAll(this.customerDeposits)
 				if (normalized.length) return normalized
 
 				if (!this.record || !this.record.deposit_bottles_raw) return []
-				return this.normalizeDepositList(this.record.deposit_bottles_raw)
+				return normalizeAll(this.record.deposit_bottles_raw)
 			},
 
 			/* ===== 单价文本 ===== */
@@ -555,6 +643,9 @@
 
 			outNetTotalRaw() {
 				if (!this.record) return 0
+				if (this.isTruckMode) {
+					return this.toNum(this.truckDetail.out_net, 0)
+				}
 				// 新字段优先
 				if (typeof this.record.out_net_total === 'number') {
 					return this.toNum(this.record.out_net_total)
@@ -572,6 +663,9 @@
 
 			backNetTotalRaw() {
 				if (!this.record) return 0
+				if (this.isTruckMode) {
+					return this.toNum(this.truckDetail.back_net, 0)
+				}
 				if (typeof this.record.back_net_total === 'number') {
 					return this.toNum(this.record.back_net_total)
 				}
@@ -586,6 +680,9 @@
 
 			netTotalRaw() {
 				if (!this.record) return 0
+				if (this.isTruckMode) {
+					return this.toNum(this.truckDetail.out_net, 0) - this.toNum(this.truckDetail.back_net, 0)
+				}
 				if (typeof this.record.total_net_weight === 'number') {
 					return this.toNum(this.record.total_net_weight)
 				}
@@ -797,6 +894,67 @@
 					return true
 				}
 				return false
+			},
+
+			hasValue(v) {
+				return v !== '' && v != null
+			},
+
+			extractTruckKey(plate) {
+				const clean = String(plate || '')
+					.replace(/[\s\u3000]+/g, '')
+					.toUpperCase()
+					.trim()
+				if (!clean) return ''
+
+				if (/^[\u4e00-\u9fa5][A-Z]/.test(clean) && clean.length >= 7) {
+					const key = clean.slice(2)
+					return key.slice(-5)
+				}
+
+				return clean
+			},
+
+			normalizeTruckBottleNo(no, fallbackPlate) {
+				const raw = String(no || '').trim()
+				if (!raw) return ''
+				const stripPrefix = raw.replace(/^TRUCK-?/i, '')
+				const key = this.extractTruckKey(stripPrefix || fallbackPlate || '')
+				if (!key) return ''
+				return `TRUCK-${key}`
+			},
+
+			normalizeBottleRows(rows) {
+				const res = []
+				const targetTruckNo = this.normalizeTruckBottleNo(null, this.record && this.record.car_no) || ''
+				let mergedTruck = null
+
+				(rows || []).forEach(item => {
+					const bottleNo = item && (item.bottle_no || item.bottleInput || item.number || '')
+					const normalizedTruck = this.normalizeTruckBottleNo(bottleNo, this.record && this.record.car_no)
+					const next = { ...item }
+
+					if (normalizedTruck) {
+						const finalNo = targetTruckNo || normalizedTruck
+						next.bottle_no = finalNo
+						if (mergedTruck) {
+							['gross', 'tare', 'net'].forEach(f => {
+								if (this.hasValue(next[f]) && !this.hasValue(mergedTruck[f])) {
+									mergedTruck[f] = next[f]
+								}
+							})
+							return
+						}
+						mergedTruck = next
+						res.push(next)
+						return
+					}
+
+					next.bottle_no = bottleNo
+					res.push(next)
+				})
+
+				return res
 			},
 
 			normalizeDepositList(list) {
